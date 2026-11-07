@@ -1,0 +1,50 @@
+# Render Blueprint for the VoxLink API: Render dashboard -> New -> Blueprint.
+# Values marked `sync: false` are asked for when the Blueprint is created.
+services:
+  - type: web
+    name: voxlink-api # serves at https://voxlink-api.onrender.com
+    runtime: node
+    region: singapore
+    # Starter or above: free instances can't have a disk, and the SQLite
+    # database would be wiped on every restart.
+    plan: starter
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      # Turns off test OTPs and free test purchases. While testing Premium in a
+      # sideloaded APK, set it to "development" in the dashboard; put it back before launch.
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: DAILY_API_KEY
+        sync: false
+      - key: POWERSTEXT_AUTH_KEY
+        sync: false
+      - key: POWERSTEXT_SENDER_ID
+        sync: false
+      - key: POWERSTEXT_TEMPLATE_ID
+        sync: false
+      - key: POWERSTEXT_ROUTE
+        value: "1"
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: GOOGLE_PLAY_PACKAGE
+        value: com.voxlink.app
+      # Fill in after the Play Console setup (see README). Empty = test purchases.
+      - key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+        sync: false

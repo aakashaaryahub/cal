@@ -66,6 +66,12 @@ flutter run --dart-define=API_BASE_URL=http://<your-PC-LAN-IP>:3000/api
 - To test a real call you need **two devices** (or a device plus an emulator) signed in with different phone numbers, both tapping connect at the same time.
 - Daily needs Android 7.0+ and iOS 14+.
 
+## Deploying the backend (Render)
+
+`render.yaml` describes the whole service. In Render: **New → Blueprint**, pick this GitHub repo, fill in the secret values it asks for, and create. It runs `backend/` on Node with a 1 GB disk at `/var/data` for the database, at `https://voxlink-api.onrender.com`. Every push to the main branch redeploys.
+
+Build the app against it with `--dart-define=API_BASE_URL=https://voxlink-api.onrender.com/api`.
+
 ## Admin dashboard
 
 Open **http://localhost:3000/admin** and sign in with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `backend/.env` (password 8+ characters; leave either empty to turn the dashboard off). Sessions last 12 hours, and 5 wrong passwords lock that IP out for 15 minutes.

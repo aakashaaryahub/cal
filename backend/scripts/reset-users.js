@@ -11,7 +11,7 @@ const http = require('http');
 const path = require('path');
 const initSqlJs = require('sql.js');
 
-// DATA_DIR points at a persistent disk in production (e.g. /var/data, a Railway volume).
+// DATA_DIR points at a persistent disk in production (e.g. /var/data, a Render disk).
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const dbPath = path.join(dataDir, 'voxlink.sqlite');
 const TABLES = ['messages', 'votes', 'follows', 'blocks', 'reports', 'calls', 'subscriptions', 'payment_orders', 'match_queue', 'otps', 'users'];

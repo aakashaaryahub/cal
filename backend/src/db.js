@@ -125,6 +125,10 @@ function isPremium(row) {
   return Boolean(row.is_premium) && Boolean(row.premium_until) && new Date(row.premium_until) > new Date();
 }
 
+function banFor(phone) {
+  return get('SELECT * FROM banned_phones WHERE phone = ?', [String(phone)]);
+}
+
 function publicUser(row, extra = {}) {
   if (!row) return null;
   return {
@@ -165,4 +169,4 @@ function peerUser(row) {
   };
 }
 
-module.exports = { init, all, get, run, insert, persist, publicUser, peerUser, isPremium };
+module.exports = { init, all, get, run, insert, persist, publicUser, peerUser, isPremium, banFor };

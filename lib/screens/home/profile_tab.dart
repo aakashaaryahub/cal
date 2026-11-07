@@ -100,9 +100,9 @@ class ProfileTabState extends State<ProfileTab> {
     Navigator.of(context).pushAndRemoveUntil(fadeRoute(const OnboardingScreen()), (_) => false);
   }
 
-  Future<void> _openPrivacyPolicy() async {
-    final opened = await launchUrl(Uri.parse(AppConfig.privacyPolicyUrl), mode: LaunchMode.externalApplication);
-    if (!opened && mounted) showToast(context, 'Couldn\'t open the privacy policy', error: true);
+  Future<void> _open(String url) async {
+    final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!opened && mounted) showToast(context, 'Couldn\'t open the page', error: true);
   }
 
   @override
@@ -282,7 +282,13 @@ class ProfileTabState extends State<ProfileTab> {
                         Icons.shield_outlined,
                         'Privacy policy',
                         'Your number is never shared',
-                        onTap: _openPrivacyPolicy,
+                        onTap: () => _open(AppConfig.privacyPolicyUrl),
+                      ),
+                      _row(
+                        Icons.gavel_rounded,
+                        'Terms of Service',
+                        'Community rules and reporting',
+                        onTap: () => _open(AppConfig.termsUrl),
                       ),
                       _row(
                         Icons.logout_rounded,

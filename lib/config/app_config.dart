@@ -20,4 +20,5 @@ class AppConfig {
   /// Public pages served by the backend (also linked from the Play listing).
   static String get siteUrl => apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
   static String get privacyPolicyUrl => '$siteUrl/privacy';
+  static String get termsUrl => '$siteUrl/terms';
 }

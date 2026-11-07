@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pinput/pinput.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../config/app_config.dart';
 import '../../models/user_profile.dart';
 import '../../services/api.dart';
 import '../../services/storage.dart';
@@ -462,6 +464,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
               if (!_login) _inviteField(),
+              const _AgreeNote(),
             ],
           ),
         ),
@@ -829,6 +832,40 @@ class _SelectTile extends StatelessWidget {
               ),
             ),
             if (!compact) const Icon(Icons.expand_more_rounded, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Play requires users to accept the terms (which ban objectionable content)
+/// before they can talk to anyone.
+class _AgreeNote extends StatelessWidget {
+  const _AgreeNote();
+
+  @override
+  Widget build(BuildContext context) {
+    const style = TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5);
+    InlineSpan link(String label, String url) => WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: GestureDetector(
+            onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+            child: Text(label, style: style.copyWith(color: AppColors.pink, fontWeight: FontWeight.w700)),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Text.rich(
+        TextSpan(
+          style: style,
+          children: [
+            const TextSpan(text: 'By continuing you confirm you are 18+ and agree to the '),
+            link('Terms of Service', AppConfig.termsUrl),
+            const TextSpan(text: ' and '),
+            link('Privacy Policy', AppConfig.privacyPolicyUrl),
+            const TextSpan(text: '.'),
           ],
         ),
       ),

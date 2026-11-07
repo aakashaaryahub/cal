@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const db = require('../db');
-const { auth, signToken } = require('../middleware/auth');
+const { auth, signToken, BANNED } = require('../middleware/auth');
 const { sendOtpSms, smsConfigured, SmsError } = require('../sms');
 
 const router = express.Router();
@@ -42,6 +42,7 @@ router.post('/otp/send', async (req, res, next) => {
     if (!phone) {
       return res.status(400).json({ ok: false, error: 'Enter a valid phone number' });
     }
+    if (db.banFor(phone)) return res.status(403).json(BANNED);
     if (req.body.mode === 'login' && !hasAccount(phone)) {
       return res.status(404).json(NO_ACCOUNT);
     }
@@ -81,6 +82,7 @@ router.post('/otp/verify', (req, res) => {
   if (!phone || !/^\d{6}$/.test(otp)) {
     return res.status(400).json({ ok: false, error: 'Invalid phone or OTP' });
   }
+  if (db.banFor(phone)) return res.status(403).json(BANNED);
   // Checked again here so a login can never create an account.
   if (req.body.mode === 'login' && !hasAccount(phone)) {
     return res.status(404).json(NO_ACCOUNT);

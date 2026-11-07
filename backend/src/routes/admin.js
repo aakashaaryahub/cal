@@ -19,6 +19,8 @@
 //   GET    /api/admin/plans              all plans, including inactive
 //   PUT    /api/admin/plans/:id          { title, amountPaise, days, badge, sortOrder, active }
 //   GET    /api/admin/reports            latest reports, for moderation
+//   POST   /api/admin/users/:id/ban      { reason } bans the phone number (also blocks re-signup)
+//   DELETE /api/admin/users/:id/ban      lifts the ban
 //
 // Message text is private and never exposed here; only counts are.
 const crypto = require('crypto');
@@ -114,6 +116,7 @@ function userRow(u) {
     onboarded: Boolean(u.profile_completed),
     isPremium: db.isPremium(u),
     premiumUntil: u.premium_until || null,
+    banned: Boolean(db.banFor(u.phone)),
     createdAt: u.created_at,
     lastSeen: u.last_seen,
   };
@@ -290,6 +293,7 @@ router.get('/users/:id', (req, res) => {
       ...withStats(u),
       inviteCode: u.invite_code || null,
       invitedBy: u.invited_by ? person(u.invited_by, db.get('SELECT name FROM users WHERE id = ?', [u.invited_by])?.name) : null,
+      banReason: db.banFor(u.phone)?.reason || null,
       invitesJoined: count('SELECT COUNT(*) AS n FROM users WHERE invited_by = ? AND profile_completed = 1', [id]),
       messagesSent: count('SELECT COUNT(*) AS n FROM messages WHERE sender_id = ?', [id]),
       messagesReceived: count('SELECT COUNT(*) AS n FROM messages WHERE receiver_id = ?', [id]),
@@ -422,6 +426,24 @@ router.post('/users/:id/demo-activity', (req, res) => {
 });
 
 // ── Settings ──
+
+router.post('/users/:id/ban', (req, res) => {
+  const u = db.get('SELECT * FROM users WHERE id = ?', [Number(req.params.id)]);
+  if (!u) return res.status(404).json({ ok: false, error: 'User not found' });
+  const reason = String(req.body.reason || '').trim().slice(0, 200);
+  db.run('INSERT OR REPLACE INTO banned_phones (phone, reason) VALUES (?, ?)', [u.phone, reason]);
+  // Out of the queue now; every later request is refused by the auth middleware.
+  db.run('DELETE FROM match_queue WHERE user_id = ?', [u.id]);
+  db.run('UPDATE users SET is_online = 0 WHERE id = ?', [u.id]);
+  res.json({ ok: true });
+});
+
+router.delete('/users/:id/ban', (req, res) => {
+  const u = db.get('SELECT * FROM users WHERE id = ?', [Number(req.params.id)]);
+  if (!u) return res.status(404).json({ ok: false, error: 'User not found' });
+  db.run('DELETE FROM banned_phones WHERE phone = ?', [u.phone]);
+  res.json({ ok: true });
+});
 
 router.get('/settings', (_req, res) => {
   res.json({ ok: true, premiumEnabled: content.premiumEnabled() });

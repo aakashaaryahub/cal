@@ -122,6 +122,14 @@ CREATE TABLE IF NOT EXISTS payment_orders (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- Numbers banned by a moderator (admin dashboard). Kept after the account is
+-- deleted, so a banned person can't sign up again with the same number.
+CREATE TABLE IF NOT EXISTS banned_phones (
+  phone TEXT PRIMARY KEY,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Ephemeral: rebuilt on every server start (see db.js).
 CREATE TABLE IF NOT EXISTS match_queue (
   user_id INTEGER PRIMARY KEY,

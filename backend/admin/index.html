@@ -373,8 +373,9 @@ let token = store.get();
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
-async function api(path, method = 'GET') {
-  const res = await fetch('/api/admin' + path, { method, headers: { Authorization: 'Bearer ' + token } });
+async function api(path, method = 'GET', body) {
+  const headers = { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) };
+  const res = await fetch('/api/admin' + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const body = await res.json().catch(() => ({}));
   if (res.status === 401) { signOut('Your session expired. Sign in again.'); throw new Error('signed out'); }
   if (!res.ok || body.ok === false) throw new Error(body.error || 'Request failed (' + res.status + ')');
@@ -664,7 +665,7 @@ loaders.users = pagedTable({
     <td>${u.age ? u.age + ' · ' : ''}${esc(genderLabel(u.gender))}</td>
     <td>${esc([u.city, u.country].filter(Boolean).join(', ') || '—')}</td>
     <td>${u.onboarded ? '<span class="badge good">onboarded</span>' : '<span class="badge warn">incomplete</span>'}
-        ${u.isPremium ? '<span class="badge pro">premium</span>' : ''}${u.reportsAgainst ? ` <span class="badge bad">${u.reportsAgainst} reports</span>` : ''}</td>
+        ${u.banned ? '<span class="badge bad">banned</span> ' : ''}${u.isPremium ? '<span class="badge pro">premium</span>' : ''}${u.reportsAgainst ? ` <span class="badge bad">${u.reportsAgainst} reports</span>` : ''}</td>
     <td class="right num">${n(u.followers)}</td><td class="right num">${n(u.following)}</td>
     <td class="right num">${n(u.calls)}</td><td class="right num">${dur(u.talkSeconds)}</td>
     <td>${fmtDate(u.createdAt)}</td><td>${ago(u.lastSeen) === 'online' ? '<span class="badge good">online</span>' : esc(ago(u.lastSeen))}</td>
@@ -777,6 +778,7 @@ async function openUser(id) {
         <h2>${esc(u.name || 'No name')}</h2>
         <div class="muted">${esc(u.phone)} · ID ${u.id}</div>
         <div class="badges">
+          ${u.banned ? '<span class="badge bad">banned</span>' : ''}
           ${u.onboarded ? '<span class="badge good">onboarded</span>' : '<span class="badge warn">didn\'t finish signup</span>'}
           ${u.isPremium ? '<span class="badge pro">premium</span>' : ''}
           ${ago(u.lastSeen) === 'online' ? '<span class="badge good">online</span>' : ''}
@@ -792,6 +794,13 @@ async function openUser(id) {
       <div class="fact"><div class="v">${dur(u.talkSeconds)}</div><div class="k">Talk time</div></div>
       <div class="fact"><div class="v">${n(u.messagesSent)}</div><div class="k">Messages sent</div></div>
       <div class="fact"><div class="v">${n(u.messagesReceived)}</div><div class="k">Messages received</div></div>
+    </div>
+    <div class="demo">
+      ${u.banned
+        ? `<p><b>Banned.</b> ${u.banReason ? 'Reason: ' + esc(u.banReason) + '. ' : ''}They can't use the app or sign up again with this number.</p>
+           <button class="btn" data-unban="${u.id}">Lift ban</button>`
+        : `<p>Ban for breaking the Terms: signs them out everywhere and stops this number signing up again.</p>
+           <button class="btn" data-ban="${u.id}">Ban user…</button>`}
     </div>
     ${d.demoEnabled && u.onboarded ? `<div class="demo">
       <p><b>Testing:</b> follows and chats need a connected call first. Add three demo people already connected to this user:
@@ -842,6 +851,26 @@ async function openUser(id) {
   drawer.scrollTop = 0;
   $('[data-close]', drawer).focus();
 }
+$('#drawer').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ban], [data-unban]');
+  if (!b) return;
+  const id = Number(b.dataset.ban || b.dataset.unban);
+  try {
+    if (b.dataset.ban) {
+      const reason = prompt('Reason for the ban (shown only here):', 'Harassment');
+      if (reason === null) return;
+      await api('/users/' + id + '/ban', 'POST', { reason });
+    } else {
+      if (!confirm('Lift the ban? They will be able to use VoxLink again.')) return;
+      await api('/users/' + id + '/ban', 'DELETE');
+    }
+  } catch (err) {
+    if (err.message !== 'signed out') alert("Couldn't update: " + err.message);
+    return;
+  }
+  await openUser(id);
+});
+
 let demoNote = '';
 $('#drawer').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-demo]');

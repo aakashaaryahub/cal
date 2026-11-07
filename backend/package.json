@@ -1,0 +1,21 @@
+{
+  "name": "voxlink-api",
+  "version": "1.0.0",
+  "description": "VoxLink REST API (SQLite + Node.js)",
+  "main": "src/index.js",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "reset-users": "node scripts/reset-users.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "sql.js": "^1.11.0"
+  }
+}

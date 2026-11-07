@@ -1,0 +1,6 @@
+# Not uploaded by `railway up`. Secrets go in Railway variables instead of .env,
+# and the database lives on the Railway volume.
+node_modules
+data
+.env
+*.log

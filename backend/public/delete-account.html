@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete your VoxLink account</title>
+<link rel="stylesheet" href="/public/page.css">
+</head>
+<body>
+<main>
+<h1>Delete your VoxLink account</h1>
+<p>This permanently deletes your profile, friends, chats and call history. Any Premium time left is lost. Records of purchases are kept without your name or phone number, as described in the <a href="/privacy">privacy policy</a>.</p>
+<p class="muted">You can also do this in the app: Profile → Delete account.</p>
+
+<form id="phone-form">
+  <label for="phone">Your phone number</label>
+  <div class="row">
+    <span class="prefix">+91</span>
+    <input id="phone" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="98765 43210" required>
+  </div>
+  <button type="submit">Send code</button>
+</form>
+
+<form id="otp-form" hidden>
+  <label for="otp">Enter the 6-digit code we sent you</label>
+  <input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+  <button type="submit" class="danger">Delete my account</button>
+</form>
+
+<p id="status" role="status"></p>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let phone = '';
+
+  function show(message, error) {
+    $('status').textContent = message;
+    $('status').className = error ? 'error' : '';
+  }
+
+  async function post(path, body, token) {
+    const res = await fetch('/api' + path, {
+      method: body ? 'POST' : 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.ok === false) throw new Error(json.error || 'Something went wrong. Please try again.');
+    return json;
+  }
+
+  $('phone-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    phone = '+91' + $('phone').value.replace(/\D/g, '');
+    show('Sending code…');
+    try {
+      const r = await post('/auth/otp/send', { phone, mode: 'login' });
+      $('phone-form').hidden = true;
+      $('otp-form').hidden = false;
+      show(r.debugOtp ? 'Test mode code: ' + r.debugOtp : 'Code sent to ' + phone + '.');
+      $('otp').focus();
+    } catch (err) {
+      show(err.message, true);
+    }
+  });
+
+  $('otp-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    show('Deleting…');
+    try {
+      const { token } = await post('/auth/otp/verify', { phone, otp: $('otp').value.trim(), mode: 'login' });
+      await post('/users/me', null, token);
+      $('otp-form').hidden = true;
+      show('Your account has been deleted.');
+    } catch (err) {
+      show(err.message, true);
+    }
+  });
+</script>
+</body>
+</html>

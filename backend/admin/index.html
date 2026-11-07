@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>VoxLink Admin</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a16;
+    --surface: #15152a;
+    --surface-high: #1e1e3a;
+    --stroke: rgba(255, 255, 255, 0.12);
+    --stroke-soft: rgba(255, 255, 255, 0.06);
+    --text: #f2f2fa;
+    --text-2: #a0a0c0;
+    --text-3: #6c6c8c;
+    --accent: #ff4d8d;
+    --series-1: #f5468a; /* random calls, single-series charts */
+    --series-2: #7b5cff; /* direct calls */
+    --good: #3ddc97;
+    --warn: #ffb547;
+    --bad: #ff5d6c;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+  a.link, button.link {
+    background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
+    color: var(--text); text-decoration: underline; text-decoration-color: var(--stroke); text-underline-offset: 3px;
+  }
+  a.link:hover, button.link:hover { text-decoration-color: var(--accent); }
+  .muted { color: var(--text-2); }
+  .faint { color: var(--text-3); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ── Login ── */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .login-card {
+    width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--stroke);
+    border-radius: 24px; padding: 32px 28px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; letter-spacing: -0.3px; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #ff4d8d, #7b5cff); font-size: 16px;
+  }
+  .login h1 { margin: 22px 0 4px; font-size: 24px; letter-spacing: -0.5px; }
+  .login p { margin: 0 0 22px; }
+  label { display: block; font-size: 13px; color: var(--text-2); margin: 14px 0 6px; }
+  .input {
+    width: 100%; height: 44px; padding: 0 14px; border-radius: 12px;
+    background: var(--bg); border: 1px solid var(--stroke); outline: none;
+  }
+  .input:focus { border-color: var(--accent); }
+  .btn {
+    height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--stroke);
+    background: var(--surface-high); cursor: pointer; font-weight: 600;
+  }
+  .btn:hover { border-color: var(--text-3); }
+  .btn-primary { width: 100%; margin-top: 22px; border: 0; background: linear-gradient(135deg, #ff4d8d, #7b5cff); }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; }
+  .error { color: var(--bad); font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+  /* ── Shell ── */
+  header {
+    position: sticky; top: 0; z-index: 10; background: rgba(10, 10, 22, 0.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--stroke-soft);
+  }
+  .bar { max-width: 1240px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  nav { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+  nav button {
+    border: 0; background: none; padding: 8px 12px; border-radius: 10px; cursor: pointer;
+    color: var(--text-2); font-weight: 600; white-space: nowrap;
+  }
+  nav button:hover { color: var(--text); }
+  nav button[aria-selected="true"] { background: var(--surface-high); color: var(--text); }
+  .bar-actions { display: flex; gap: 8px; }
+  .bar-actions .btn { height: 36px; padding: 0 12px; font-size: 13px; }
+  main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 48px; }
+  h2 { font-size: 20px; letter-spacing: -0.3px; margin: 0 0 14px; }
+  h3 { font-size: 14px; margin: 0; font-weight: 700; }
+  .section-gap { margin-top: 28px; }
+
+  /* ── Tiles ── */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--surface); border: 1px solid var(--stroke-soft); border-radius: var(--radius); padding: 16px; }
+  .tile .label { color: var(--text-2); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tile .value { font-size: 28px; font-weight: 800; letter-spacing: -0.8px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .tile .sub { color: var(--text-2); font-size: 12px; margin-top: 2px; }
+
+  /* ── Charts ── */
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--stroke-soft); border-radius: var(--radius); padding: 16px; min-width: 0; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .chart { width: 100%; height: 190px; position: relative; }
+  .chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .chart .grid { stroke: var(--stroke-soft); stroke-width: 1; }
+  .chart .baseline { stroke: var(--stroke); stroke-width: 1; }
+  .chart text { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart .hit { fill: transparent; cursor: default; }
+  .chart .hit:hover, .chart .hit.on { fill: rgba(255, 255, 255, 0.04); }
+  .empty-chart { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); font-size: 13px; }
+  details.table-view { margin-top: 8px; font-size: 12px; }
+  details.table-view summary { cursor: pointer; color: var(--text-3); }
+  details.table-view table { margin-top: 8px; }
+  .hbars { display: grid; gap: 10px; }
+  .hbar { display: grid; grid-template-columns: 110px 1fr 40px; align-items: center; gap: 10px; font-size: 13px; }
+  .hbar .track { height: 10px; background: var(--stroke-soft); border-radius: 4px; overflow: hidden; }
+  .hbar .fill { height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+  .hbar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+  .tip {
+    position: fixed; z-index: 50; pointer-events: none; background: var(--surface-high); border: 1px solid var(--stroke);
+    border-radius: 10px; padding: 8px 10px; font-size: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); min-width: 130px;
+  }
+  .tip b { display: block; margin-bottom: 4px; }
+  .tip .row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-2); }
+  .tip .row span:last-child { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  /* ── Tables ── */
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar .input { height: 38px; max-width: 320px; }
+  .toolbar select.input { width: auto; }
+  .count { color: var(--text-2); font-size: 13px; margin-left: auto; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--stroke-soft); border-radius: var(--radius); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--stroke-soft); white-space: nowrap; vertical-align: middle; }
+  th { font-size: 12px; color: var(--text-2); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr.clickable { cursor: pointer; }
+  tbody tr.clickable:hover { background: rgba(255, 255, 255, 0.03); }
+  td.right, th.right { text-align: right; }
+  .who { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; }
+  .who small { color: var(--text-3); font-size: 12px; }
+  .arrow { color: var(--text-3); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 20px; border: 1px solid var(--stroke); color: var(--text-2); white-space: nowrap;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.good { color: var(--good); border-color: rgba(61, 220, 151, 0.35); }
+  .badge.warn { color: var(--warn); border-color: rgba(255, 181, 71, 0.35); }
+  .badge.bad { color: var(--bad); border-color: rgba(255, 93, 108, 0.35); }
+  .badge.pro { color: var(--accent); border-color: rgba(255, 77, 141, 0.4); }
+  .badge.plain::before { display: none; }
+  .more { display: flex; justify-content: center; margin-top: 12px; }
+  .empty { padding: 28px; text-align: center; color: var(--text-3); }
+
+  /* ── User drawer ── */
+  .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 30; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); z-index: 31; background: var(--bg);
+    border-left: 1px solid var(--stroke); overflow-y: auto; padding: 20px 20px 40px;
+  }
+  .drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .drawer-head h2 { margin: 0; }
+  .close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--stroke); background: var(--surface); cursor: pointer; font-size: 18px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .fact { background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+  .fact .v { font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .fact .k { color: var(--text-2); font-size: 12px; }
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin-top: 16px; font-size: 13px; }
+  .kv dt { color: var(--text-2); }
+  .kv dd { margin: 0; }
+  .drawer h3 { margin: 24px 0 8px; display: flex; gap: 8px; align-items: baseline; }
+  .drawer h3 .faint { font-weight: 500; }
+  .list { background: var(--surface); border-radius: 12px; }
+  .list-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--stroke-soft); font-size: 13px; }
+  .list-row:last-child { border-bottom: 0; }
+  .list-row .meta { color: var(--text-3); font-size: 12px; text-align: right; }
+  .setting { display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; padding: 18px; }
+  .setting + .setting { border-top: 1px solid var(--stroke-soft); }
+  .setting h3 { margin-bottom: 4px; }
+  .setting p { margin: 0; color: var(--text-2); font-size: 13px; max-width: 620px; }
+  .setting .state { margin-top: 8px; font-size: 13px; font-weight: 600; }
+  .switch { position: relative; flex: none; width: 52px; height: 30px; border-radius: 30px; border: 0; cursor: pointer;
+    background: var(--surface-high); box-shadow: inset 0 0 0 1px var(--stroke); transition: background .2s; }
+  .switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--text-2); transition: transform .2s, background .2s; }
+  .switch[aria-checked="true"] { background: var(--accent); box-shadow: none; }
+  .switch[aria-checked="true"]::after { transform: translateX(22px); background: #fff; }
+  .switch:disabled { opacity: .5; cursor: default; }
+  .demo { margin-top: 16px; padding: 12px 14px; border: 1px dashed var(--stroke); border-radius: 12px; font-size: 13px; }
+  .demo p { margin: 0 0 10px; color: var(--text-2); }
+  .demo .btn { height: 36px; font-size: 13px; }
+  .demo .note { margin: 8px 0 0; color: var(--good); }
+
+  @media (max-width: 640px) {
+    .bar { gap: 8px; }
+    nav { order: 3; flex-basis: 100%; }
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+    .hbar { grid-template-columns: 90px 1fr 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login" class="login hidden">
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="brand"><span class="brand-mark">🎙</span> VoxLink Admin</div>
+    <h1>Sign in</h1>
+    <p class="muted">Admins only. Everything here is read-only.</p>
+    <label for="username">Username</label>
+    <input class="input" id="username" name="username" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn btn-primary" id="login-btn" type="submit">Sign in</button>
+    <div class="error" id="login-error" role="alert"></div>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="bar">
+      <div class="brand"><span class="brand-mark">🎙</span> VoxLink Admin</div>
+      <nav role="tablist" id="tabs">
+        <button role="tab" data-tab="overview">Overview</button>
+        <button role="tab" data-tab="users">Users</button>
+        <button role="tab" data-tab="calls">Calls</button>
+        <button role="tab" data-tab="follows">Follows</button>
+        <button role="tab" data-tab="reports">Reports</button>
+        <button role="tab" data-tab="settings">Settings</button>
+      </nav>
+      <div class="bar-actions">
+        <button class="btn" id="refresh" title="Reload this tab">Refresh</button>
+        <button class="btn" id="logout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section data-panel="overview">
+      <h2>Overview</h2>
+      <div class="tiles" id="tiles"></div>
+      <div class="charts">
+        <div class="card">
+          <div class="card-head"><h3>New signups per day</h3><span class="faint">last 14 days, UTC</span></div>
+          <div class="chart" id="chart-signups"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3>Calls per day</h3>
+            <div class="legend">
+              <span><i class="swatch" style="background:var(--series-1)"></i>Random</span>
+              <span><i class="swatch" style="background:var(--series-2)"></i>Friend calls</span>
+            </div>
+          </div>
+          <div class="chart" id="chart-calls"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Talk minutes per day</h3><span class="faint">last 14 days, UTC</span></div>
+          <div class="chart" id="chart-talk"></div>
+        </div>
+      </div>
+      <div class="charts">
+        <div class="card"><div class="card-head"><h3>Gender</h3><span class="faint">onboarded users</span></div><div class="hbars" id="gender"></div></div>
+        <div class="card"><div class="card-head"><h3>Top countries</h3><span class="faint">onboarded users</span></div><div class="hbars" id="countries"></div></div>
+      </div>
+    </section>
+
+    <section data-panel="users" class="hidden">
+      <h2>Users</h2>
+      <div class="toolbar">
+        <input class="input" id="user-q" type="search" placeholder="Search name, phone, city, country">
+        <select class="input" id="user-filter" aria-label="Filter users">
+          <option value="all">All users</option>
+          <option value="onboarded">Onboarded</option>
+          <option value="incomplete">Didn't finish signup</option>
+          <option value="premium">Premium</option>
+        </select>
+        <span class="count" id="user-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>User</th><th>Age · Gender</th><th>Location</th><th>Status</th>
+            <th class="right">Followers</th><th class="right">Following</th><th class="right">Calls</th><th class="right">Talk time</th>
+            <th>Joined</th><th>Last seen</th>
+          </tr></thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+      <div class="more"><button class="btn hidden" id="user-more">Load more</button></div>
+    </section>
+
+    <section data-panel="calls" class="hidden">
+      <h2>Calls</h2>
+      <div class="toolbar">
+        <select class="input" id="call-kind" aria-label="Call type">
+          <option value="">All calls</option>
+          <option value="random">Random matches</option>
+          <option value="direct">Friend calls</option>
+        </select>
+        <span class="count" id="call-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Caller</th><th></th><th>Callee</th><th>Type</th><th>Status</th><th class="right">Duration</th></tr></thead>
+          <tbody id="call-rows"></tbody>
+        </table>
+      </div>
+      <div class="more"><button class="btn hidden" id="call-more">Load more</button></div>
+    </section>
+
+    <section data-panel="follows" class="hidden">
+      <h2>Follows</h2>
+      <div class="toolbar"><span class="count" id="follow-count"></span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Follower</th><th></th><th>Followed</th><th></th></tr></thead>
+          <tbody id="follow-rows"></tbody>
+        </table>
+      </div>
+      <div class="more"><button class="btn hidden" id="follow-more">Load more</button></div>
+    </section>
+
+    <section data-panel="settings" class="hidden">
+      <h2>Settings</h2>
+      <div class="card" style="padding:0">
+        <div class="setting">
+          <div>
+            <h3>Premium gender filter</h3>
+            <p><b>Off:</b> everyone can choose to talk to anyone, women or men for free, and the app hides Premium.
+            <b>On:</b> choosing women or men needs Premium, and the app shows plans and the paywall.</p>
+            <p class="state" id="premium-state"></p>
+          </div>
+          <button class="switch" id="premium-switch" role="switch" aria-checked="false" aria-label="Premium gender filter" disabled></button>
+        </div>
+      </div>
+      <p class="faint" style="margin-top:10px;font-size:13px">The server applies a change straight away. Apps pick it up the next time they open.</p>
+    </section>
+
+    <section data-panel="reports" class="hidden">
+      <h2>Reports</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Reported user</th><th class="right">Total reports</th><th>Reported by</th><th>Reason</th></tr></thead>
+          <tbody id="report-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="scrim" class="scrim hidden"></div>
+<aside id="drawer" class="drawer hidden" aria-modal="true" role="dialog"></aside>
+<div id="tip" class="tip hidden"></div>
+
+<script>
+'use strict';
+
+// ── Session ──
+const store = {
+  get() { try { return sessionStorage.getItem('voxlink_admin'); } catch { return null; } },
+  set(v) { try { v ? sessionStorage.setItem('voxlink_admin', v) : sessionStorage.removeItem('voxlink_admin'); } catch {} },
+};
+let token = store.get();
+
+const $ = (sel, root = document) => root.querySelector(sel);
+
+async function api(path, method = 'GET') {
+  const res = await fetch('/api/admin' + path, { method, headers: { Authorization: 'Bearer ' + token } });
+  const body = await res.json().catch(() => ({}));
+  if (res.status === 401) { signOut('Your session expired. Sign in again.'); throw new Error('signed out'); }
+  if (!res.ok || body.ok === false) throw new Error(body.error || 'Request failed (' + res.status + ')');
+  return body;
+}
+
+$('#login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('#login-btn');
+  btn.disabled = true;
+  $('#login-error').textContent = '';
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: $('#username').value.trim(), password: $('#password').value }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.token) throw new Error(body.error || 'Sign-in failed (' + res.status + ')');
+    token = body.token;
+    store.set(token);
+    $('#password').value = '';
+    showApp();
+  } catch (err) {
+    $('#login-error').textContent = err.message === 'Failed to fetch' ? 'Can\'t reach the server.' : err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function signOut(message) {
+  token = null;
+  store.set(null);
+  closeUser();
+  $('#app').classList.add('hidden');
+  $('#login').classList.remove('hidden');
+  $('#login-error').textContent = message || '';
+  $('#username').focus();
+}
+$('#logout').addEventListener('click', () => signOut());
+
+function showApp() {
+  $('#login').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  openTab(location.hash.slice(1) || 'overview');
+}
+
+// ── Formatting ──
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const nf = new Intl.NumberFormat('en-IN');
+const n = (v) => nf.format(v || 0);
+
+// SQLite stores UTC as "YYYY-MM-DD HH:MM:SS"; ISO strings already carry a zone.
+function parseTime(v) {
+  if (!v) return null;
+  const d = new Date(String(v).includes('T') ? v : String(v).replace(' ', 'T') + 'Z');
+  return isNaN(d) ? null : d;
+}
+function fmtTime(v) {
+  const d = parseTime(v);
+  return d ? d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+}
+function fmtDate(v) {
+  const d = parseTime(v);
+  return d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+}
+function ago(v) {
+  const d = parseTime(v);
+  if (!d) return 'never';
+  const s = Math.max(0, (Date.now() - d) / 1000);
+  if (s < 300) return 'online';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  return Math.round(s / 86400) + ' d ago';
+}
+function dur(sec) {
+  sec = Math.round(sec || 0);
+  if (sec === 0) return '0s';
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (h) return h + 'h ' + String(m).padStart(2, '0') + 'm';
+  if (m) return m + 'm ' + String(s).padStart(2, '0') + 's';
+  return s + 's';
+}
+const rupees = (paise) => '₹' + nf.format(Math.round((paise || 0) / 100));
+const genderLabel = (g) => ({ female: 'Woman', male: 'Man', other: 'Other' })[g] || (g ? g : '—');
+const userLink = (p) => `<button class="link" data-user="${p.id}">${esc(p.name || 'No name')}</button>`;
+const who = (p) => `<div class="who">${userLink(p)}${p.phone ? `<small>${esc(p.phone)}</small>` : ''}</div>`;
+
+function statusBadge(c) {
+  const map = { completed: 'good', connected: 'good', matched: 'good', ringing: 'warn', missed: 'bad', declined: 'bad', cancelled: '' };
+  return `<span class="badge ${map[c.status] ?? ''}">${esc(c.status)}</span>`;
+}
+const kindLabel = (k) => (k === 'direct' ? 'Friend call' : 'Random');
+
+function emptyRow(cols, text) { return `<tr><td colspan="${cols}" class="empty">${esc(text)}</td></tr>`; }
+function errorRow(cols, err) { return err.message === 'signed out' ? '' : emptyRow(cols, 'Couldn\'t load: ' + err.message); }
+
+// ── Tabs ──
+const loaders = {};
+function openTab(name) {
+  if (!loaders[name]) name = 'overview';
+  for (const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === name));
+  for (const p of document.querySelectorAll('[data-panel]')) p.classList.toggle('hidden', p.dataset.panel !== name);
+  if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+  loaders[name]();
+}
+$('#tabs').addEventListener('click', (e) => { const t = e.target.closest('[data-tab]'); if (t) openTab(t.dataset.tab); });
+$('#refresh').addEventListener('click', () => openTab(location.hash.slice(1) || 'overview'));
+
+// Any name anywhere opens that user's details.
+document.addEventListener('click', (e) => {
+  const u = e.target.closest('[data-user]');
+  if (u) { e.stopPropagation(); openUser(Number(u.dataset.user)); }
+});
+
+// ── Overview ──
+let overview = null;
+loaders.overview = async () => {
+  try {
+    overview = await api('/overview');
+  } catch (err) {
+    if (err.message !== 'signed out') $('#tiles').innerHTML = `<div class="tile">Couldn't load: ${esc(err.message)}</div>`;
+    return;
+  }
+  const t = overview.totals;
+  const pct = t.users ? Math.round((t.onboarded / t.users) * 100) : 0;
+  const tiles = [
+    ['Users', n(t.users), `${n(t.users - t.onboarded)} didn't finish signup`],
+    ['Onboarded', n(t.onboarded), `${pct}% of signups`],
+    ['Active now', n(t.activeNow), `${n(t.active24h)} in the last 24 h`],
+    ['Premium', n(t.premium), 'active subscriptions'],
+    ['Calls', n(t.calls), `${n(t.connectedCalls)} connected`],
+    ['Talk time', dur(t.talkSeconds), `avg ${dur(t.avgCallSeconds)} per call`],
+    ['Follows', n(t.follows), `${n(t.friendPairs)} friend pairs`],
+    ['Messages', n(t.messages), 'between friends'],
+    ['Reports', n(t.reports), `${n(t.blocks)} blocks`],
+    ['Revenue', rupees(t.revenuePaise), t.testPayments ? `+ ${n(t.testPayments)} test payments` : 'paid orders'],
+    ['Joined via invite', n(t.invitedUsers), t.onboarded ? `${Math.round((t.invitedUsers / t.onboarded) * 100)}% of onboarded · ${n(t.inviters)} inviters` : 'no users yet'],
+  ];
+  $('#tiles').innerHTML = tiles
+    .map(([k, v, s]) => `<div class="tile"><div class="label">${k}</div><div class="value">${v}</div><div class="sub">${esc(s)}</div></div>`)
+    .join('');
+  drawCharts();
+  hbars('#gender', overview.gender.map((g) => [genderLabel(g.gender), g.count]));
+  hbars('#countries', overview.countries.map((c) => [c.country, c.count]));
+};
+
+function drawCharts() {
+  if (!overview) return;
+  const d = overview.daily;
+  barChart('#chart-signups', d, [{ key: 'signups', label: 'Signups', color: 'var(--series-1)' }]);
+  barChart('#chart-calls', d, [
+    { key: 'randomCalls', label: 'Random', color: 'var(--series-1)' },
+    { key: 'directCalls', label: 'Friend calls', color: 'var(--series-2)' },
+  ]);
+  barChart('#chart-talk', d, [{ key: 'talkMinutes', label: 'Minutes', color: 'var(--series-1)' }]);
+}
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawCharts, 150); });
+
+function hbars(sel, rows) {
+  const max = Math.max(1, ...rows.map((r) => r[1]));
+  $(sel).innerHTML = rows.length
+    ? rows.map(([name, v]) => `<div class="hbar"><span class="name" title="${esc(name)}">${esc(name)}</span>` +
+        `<span class="track"><span class="fill" style="display:block;width:${(v / max) * 100}%"></span></span>` +
+        `<span class="n">${n(v)}</span></div>`).join('')
+    : '<div class="faint">No data yet</div>';
+}
+
+const shortDay = (iso) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+// Top of the y-axis: four equal whole-number steps (1, 2, 3, 4, 5, 6, 8, 10, 20...).
+function niceMax(v) {
+  const raw = Math.max(1, v / 4);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 3, 4, 5, 6, 8, 10].map((m) => m * mag).find((x) => x >= raw);
+  return step * 4;
+}
+
+// Stacked (or single) vertical bars with a hover tooltip and a table view.
+function barChart(sel, rows, series) {
+  const el = $(sel);
+  const W = Math.max(260, el.clientWidth), H = 190;
+  const pad = { l: 30, r: 4, t: 8, b: 22 };
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const totals = rows.map((r) => series.reduce((s, x) => s + (r[x.key] || 0), 0));
+  const max = niceMax(Math.max(...totals));
+  const band = iw / rows.length;
+  const bw = Math.min(28, Math.max(6, band * 0.62));
+  const y = (v) => pad.t + ih - (v / max) * ih;
+  const labelEvery = band < 26 ? 3 : band < 40 ? 2 : 1;
+
+  let svg = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = (max / 4) * i, yy = y(v);
+    if (i > 0) svg += `<line class="grid" x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}"/>`;
+    svg += `<text x="${pad.l - 6}" y="${yy + 4}" text-anchor="end">${n(v)}</text>`;
+  }
+  rows.forEach((r, i) => {
+    const cx = pad.l + band * i + band / 2;
+    const x = cx - bw / 2;
+    svg += `<rect class="hit" data-i="${i}" x="${pad.l + band * i}" y="${pad.t}" width="${band}" height="${ih}"/>`;
+    let base = 0;
+    const visible = series.filter((s) => r[s.key] > 0);
+    visible.forEach((s, j) => {
+      const v = r[s.key];
+      const y0 = y(base), y1 = y(base + v);
+      // 2px surface gap between stacked segments.
+      const top = y1, bottom = y0 - (j > 0 ? 2 : 0);
+      const h = Math.max(1, bottom - top);
+      const isTop = j === visible.length - 1;
+      const rad = isTop ? Math.min(4, h, bw / 2) : 0;
+      svg += `<path pointer-events="none" fill="${s.color}" d="M${x},${top + h} V${top + rad} Q${x},${top} ${x + rad},${top} H${x + bw - rad} Q${x + bw},${top} ${x + bw},${top + rad} V${top + h} Z"/>`;
+      base += v;
+    });
+    if (i % labelEvery === (rows.length - 1) % labelEvery) {
+      svg += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${esc(shortDay(r.date))}</text>`;
+    }
+  });
+  svg += `<line class="baseline" x1="${pad.l}" x2="${W - pad.r}" y1="${pad.t + ih}" y2="${pad.t + ih}"/>`;
+
+  const empty = totals.every((t) => t === 0) ? '<div class="empty-chart">Nothing in the last 14 days</div>' : '';
+  const table = `<details class="table-view"><summary>View as table</summary><table><thead><tr><th>Day</th>` +
+    series.map((s) => `<th class="right">${esc(s.label)}</th>`).join('') + `</tr></thead><tbody>` +
+    rows.map((r) => `<tr><td>${esc(shortDay(r.date))}</td>` + series.map((s) => `<td class="right num">${n(r[s.key])}</td>`).join('') + '</tr>').join('') +
+    `</tbody></table></details>`;
+  const open = el.nextElementSibling?.matches('details.table-view') && el.nextElementSibling.open;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map((s) => s.label).join(' and '))} per day">${svg}</svg>${empty}`;
+  el.nextElementSibling?.matches('details.table-view') && el.nextElementSibling.remove();
+  el.insertAdjacentHTML('afterend', table);
+  if (open) el.nextElementSibling.open = true;
+
+  const tip = $('#tip');
+  el.querySelectorAll('.hit').forEach((hit) => {
+    hit.addEventListener('mousemove', (e) => {
+      const r = rows[Number(hit.dataset.i)];
+      tip.innerHTML = `<b>${esc(shortDay(r.date))}</b>` +
+        series.map((s) => `<div class="row"><span><i class="swatch" style="background:${s.color}"></i> ${esc(s.label)}</span><span>${n(r[s.key])}</span></div>`).join('') +
+        (series.length > 1 ? `<div class="row"><span>Total</span><span>${n(totals[Number(hit.dataset.i)])}</span></div>` : '');
+      tip.classList.remove('hidden');
+      const tw = tip.offsetWidth, th = tip.offsetHeight;
+      let left = e.clientX + 14, top = e.clientY - th - 10;
+      if (left + tw > innerWidth - 8) left = e.clientX - tw - 14;
+      if (top < 8) top = e.clientY + 14;
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    });
+    hit.addEventListener('mouseleave', () => tip.classList.add('hidden'));
+  });
+}
+
+// ── Paged tables ──
+function pagedTable({ path, params, rows, more, count, cols, render, key, noun }) {
+  let offset = 0, total = 0, loading = false;
+  async function load(reset) {
+    if (loading) return;
+    loading = true;
+    if (reset) { offset = 0; $(rows).innerHTML = emptyRow(cols, 'Loading…'); }
+    try {
+      const qs = new URLSearchParams({ ...params(), limit: 50, offset });
+      const body = await api(path + '?' + qs);
+      total = body.total;
+      const items = body[key];
+      const html = items.map(render).join('');
+      if (reset) $(rows).innerHTML = html || emptyRow(cols, 'No ' + noun + ' yet');
+      else $(rows).insertAdjacentHTML('beforeend', html);
+      offset += items.length;
+      $(count).textContent = `${n(total)} ${noun}`;
+      $(more).classList.toggle('hidden', offset >= total);
+    } catch (err) {
+      if (reset) $(rows).innerHTML = errorRow(cols, err);
+    } finally {
+      loading = false;
+    }
+  }
+  $(more).addEventListener('click', () => load(false));
+  return () => load(true);
+}
+
+let searchTimer;
+loaders.users = pagedTable({
+  path: '/users', key: 'users', noun: 'users', cols: 10,
+  rows: '#user-rows', more: '#user-more', count: '#user-count',
+  params: () => ({ q: $('#user-q').value.trim(), filter: $('#user-filter').value }),
+  render: (u) => `<tr class="clickable" data-user="${u.id}">
+    <td>${who(u)}</td>
+    <td>${u.age ? u.age + ' · ' : ''}${esc(genderLabel(u.gender))}</td>
+    <td>${esc([u.city, u.country].filter(Boolean).join(', ') || '—')}</td>
+    <td>${u.onboarded ? '<span class="badge good">onboarded</span>' : '<span class="badge warn">incomplete</span>'}
+        ${u.isPremium ? '<span class="badge pro">premium</span>' : ''}${u.reportsAgainst ? ` <span class="badge bad">${u.reportsAgainst} reports</span>` : ''}</td>
+    <td class="right num">${n(u.followers)}</td><td class="right num">${n(u.following)}</td>
+    <td class="right num">${n(u.calls)}</td><td class="right num">${dur(u.talkSeconds)}</td>
+    <td>${fmtDate(u.createdAt)}</td><td>${ago(u.lastSeen) === 'online' ? '<span class="badge good">online</span>' : esc(ago(u.lastSeen))}</td>
+  </tr>`,
+});
+$('#user-q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loaders.users, 250); });
+$('#user-filter').addEventListener('change', () => loaders.users());
+
+const callRow = (c) => `<tr>
+  <td>${fmtTime(c.startedAt)}</td><td>${who(c.caller)}</td><td class="arrow">→</td><td>${who(c.callee)}</td>
+  <td>${kindLabel(c.kind)}</td><td>${statusBadge(c)}</td><td class="right num">${dur(c.durationSeconds)}</td>
+</tr>`;
+loaders.calls = pagedTable({
+  path: '/calls', key: 'calls', noun: 'calls', cols: 7,
+  rows: '#call-rows', more: '#call-more', count: '#call-count',
+  params: () => ($('#call-kind').value ? { kind: $('#call-kind').value } : {}),
+  render: callRow,
+});
+$('#call-kind').addEventListener('change', () => loaders.calls());
+
+loaders.follows = pagedTable({
+  path: '/follows', key: 'follows', noun: 'follows', cols: 5,
+  rows: '#follow-rows', more: '#follow-more', count: '#follow-count',
+  params: () => ({}),
+  render: (f) => `<tr>
+    <td>${fmtTime(f.createdAt)}</td><td>${who(f.follower)}</td><td class="arrow">follows</td><td>${who(f.following)}</td>
+    <td>${f.mutual ? '<span class="badge good">friends</span>' : ''}</td>
+  </tr>`,
+});
+
+loaders.settings = async () => {
+  const sw = $('#premium-switch');
+  sw.disabled = true;
+  try {
+    const { premiumEnabled } = await api('/settings');
+    showPremium(premiumEnabled);
+  } catch (err) {
+    if (err.message !== 'signed out') $('#premium-state').textContent = `Couldn't load: ${err.message}`;
+  }
+};
+function showPremium(on) {
+  const sw = $('#premium-switch');
+  sw.setAttribute('aria-checked', String(on));
+  sw.disabled = false;
+  $('#premium-state').textContent = on ? 'On: women/men filters need Premium' : 'Off: everyone can choose anyone for free';
+}
+$('#premium-switch').addEventListener('click', async () => {
+  const sw = $('#premium-switch');
+  const next = sw.getAttribute('aria-checked') !== 'true';
+  const msg = next
+    ? 'Turn Premium ON? Free users will lose the women/men filter and see the paywall.'
+    : 'Turn Premium OFF? Everyone gets the women/men filter for free and Premium is hidden.';
+  if (!confirm(msg)) return;
+  sw.disabled = true;
+  try {
+    const res = await fetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ premiumEnabled: next }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401) return signOut('Your session expired. Sign in again.');
+    if (!res.ok) throw new Error(body.error || 'Request failed (' + res.status + ')');
+    showPremium(body.premiumEnabled);
+  } catch (err) {
+    $('#premium-state').textContent = `Couldn't save: ${err.message}`;
+    sw.disabled = false;
+  }
+});
+
+loaders.reports = async () => {
+  $('#report-rows').innerHTML = emptyRow(5, 'Loading…');
+  try {
+    const { reports } = await api('/reports');
+    $('#report-rows').innerHTML = reports.length
+      ? reports.map((r) => `<tr>
+          <td>${fmtTime(r.created_at)}</td>
+          <td>${who({ id: r.reported_id, name: r.reported_name, phone: r.reported_phone })}</td>
+          <td class="right num">${n(r.total_reports)}</td>
+          <td>${userLink({ id: r.reporter_id, name: r.reporter_name })}</td>
+          <td style="white-space:normal">${esc(r.reason)}</td>
+        </tr>`).join('')
+      : emptyRow(5, 'No reports yet');
+  } catch (err) {
+    $('#report-rows').innerHTML = errorRow(5, err);
+  }
+};
+
+// ── User details ──
+async function openUser(id) {
+  const drawer = $('#drawer');
+  drawer.innerHTML = '<div class="empty">Loading…</div>';
+  drawer.classList.remove('hidden');
+  $('#scrim').classList.remove('hidden');
+  let d;
+  try {
+    d = await api('/users/' + id);
+  } catch (err) {
+    if (err.message !== 'signed out') drawer.innerHTML = `<div class="drawer-head"><div></div><button class="close" data-close>×</button></div><div class="empty">Couldn't load: ${esc(err.message)}</div>`;
+    return;
+  }
+  const u = d.user;
+  const other = (c) => (c.caller.id === u.id ? c.callee : c.caller);
+  const list = (items, render, emptyText) =>
+    items.length ? `<div class="list">${items.map(render).join('')}</div>` : `<div class="faint">${emptyText}</div>`;
+
+  drawer.innerHTML = `
+    <div class="drawer-head">
+      <div>
+        <h2>${esc(u.name || 'No name')}</h2>
+        <div class="muted">${esc(u.phone)} · ID ${u.id}</div>
+        <div class="badges">
+          ${u.onboarded ? '<span class="badge good">onboarded</span>' : '<span class="badge warn">didn\'t finish signup</span>'}
+          ${u.isPremium ? '<span class="badge pro">premium</span>' : ''}
+          ${ago(u.lastSeen) === 'online' ? '<span class="badge good">online</span>' : ''}
+          ${u.reportsAgainst ? `<span class="badge bad">reported ${u.reportsAgainst}×</span>` : ''}
+        </div>
+      </div>
+      <button class="close" data-close aria-label="Close">×</button>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="v">${n(u.followers)}</div><div class="k">Followers</div></div>
+      <div class="fact"><div class="v">${n(u.following)}</div><div class="k">Following</div></div>
+      <div class="fact"><div class="v">${n(u.calls)}</div><div class="k">Calls</div></div>
+      <div class="fact"><div class="v">${dur(u.talkSeconds)}</div><div class="k">Talk time</div></div>
+      <div class="fact"><div class="v">${n(u.messagesSent)}</div><div class="k">Messages sent</div></div>
+      <div class="fact"><div class="v">${n(u.messagesReceived)}</div><div class="k">Messages received</div></div>
+    </div>
+    ${d.demoEnabled && u.onboarded ? `<div class="demo">
+      <p><b>Testing:</b> follows and chats need a connected call first. Add three demo people already connected to this user:
+      Priya (friend, with a chat), Rahul (follows them) and Meera (past call, has reported them).</p>
+      <button class="btn" data-demo="${u.id}">Add demo friends &amp; chat</button>
+      ${demoNote ? `<p class="note">${esc(demoNote)}</p>` : ''}
+    </div>` : ''}
+    <dl class="kv">
+      <dt>Age · Gender</dt><dd>${u.age || '—'} · ${esc(genderLabel(u.gender))}</dd>
+      <dt>Location</dt><dd>${esc([u.city, u.country].filter(Boolean).join(', ') || '—')}</dd>
+      <dt>Joined</dt><dd>${fmtTime(u.createdAt)}</dd>
+      <dt>Last seen</dt><dd>${fmtTime(u.lastSeen)} <span class="faint">(${esc(ago(u.lastSeen))})</span></dd>
+      <dt>Premium until</dt><dd>${u.isPremium ? fmtDate(u.premiumUntil) : '—'}</dd>
+      <dt>Invited by</dt><dd>${u.invitedBy ? userLink(u.invitedBy) : '—'}</dd>
+      <dt>Invites</dt><dd>${n(u.invitesJoined)} joined${u.inviteCode ? ` · code <b>${esc(u.inviteCode)}</b>` : ''}</dd>
+    </dl>
+
+    <h3>Calls <span class="faint">${n(d.calls.length)}</span></h3>
+    ${list(d.calls, (c) => `<div class="list-row">
+        <div>${c.caller.id === u.id ? 'Called' : 'Called by'} ${userLink(other(c))} <span class="faint">· ${kindLabel(c.kind)}</span></div>
+        <div class="meta">${statusBadge(c)} ${dur(c.durationSeconds)}<br>${fmtTime(c.startedAt)}</div>
+      </div>`, 'No calls yet')}
+
+    <h3>Followers <span class="faint">${n(d.followers.length)}</span></h3>
+    ${list(d.followers, (f) => `<div class="list-row"><div>${userLink(f.follower)} ${f.mutual ? '<span class="badge good">friends</span>' : ''}</div><div class="meta">${fmtTime(f.createdAt)}</div></div>`, 'No followers yet')}
+
+    <h3>Following <span class="faint">${n(d.following.length)}</span></h3>
+    ${list(d.following, (f) => `<div class="list-row"><div>${userLink(f.following)} ${f.mutual ? '<span class="badge good">friends</span>' : ''}</div><div class="meta">${fmtTime(f.createdAt)}</div></div>`, 'Not following anyone')}
+
+    <h3>Reports <span class="faint">${n(d.reports.length)}</span></h3>
+    ${list(d.reports, (r) => `<div class="list-row">
+        <div>${r.reported.id === u.id ? `Reported by ${userLink(r.reporter)}` : `Reported ${userLink(r.reported)}`}<br><span class="faint">${esc(r.reason)}</span></div>
+        <div class="meta">${fmtTime(r.createdAt)}</div>
+      </div>`, 'No reports')}
+
+    <h3>Blocks <span class="faint">${n(d.blocks.length)}</span></h3>
+    ${list(d.blocks, (b) => `<div class="list-row">
+        <div>${b.blocker.id === u.id ? `Blocked ${userLink(b.blocked)}` : `Blocked by ${userLink(b.blocker)}`}</div>
+        <div class="meta">${fmtTime(b.createdAt)}</div>
+      </div>`, 'No blocks')}
+
+    <h3>Payments <span class="faint">${n(d.payments.length)}</span></h3>
+    ${list(d.payments, (p) => `<div class="list-row">
+        <div>${esc(p.plan)} · ${rupees(p.amountPaise)} · ${p.days} days ${p.provider === 'dev' ? '<span class="badge plain">test</span>' : ''}</div>
+        <div class="meta"><span class="badge ${p.status === 'paid' ? 'good' : ''}">${esc(p.status)}</span><br>${fmtTime(p.createdAt)}</div>
+      </div>`, 'No payments')}
+  `;
+  drawer.scrollTop = 0;
+  $('[data-close]', drawer).focus();
+}
+let demoNote = '';
+$('#drawer').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-demo]');
+  if (!b) return;
+  b.disabled = true;
+  b.textContent = 'Adding…';
+  try {
+    const { people } = await api('/users/' + b.dataset.demo + '/demo-activity', 'POST');
+    demoNote = `Added ${people.map((p) => p.name).join(', ')}. Pull to refresh the Chats and Profile tabs in the app.`;
+  } catch (err) {
+    demoNote = err.message === 'signed out' ? '' : `Couldn't add: ${err.message}`;
+  }
+  await openUser(Number(b.dataset.demo));
+  demoNote = '';
+});
+
+function closeUser() {
+  $('#drawer').classList.add('hidden');
+  $('#scrim').classList.add('hidden');
+}
+$('#scrim').addEventListener('click', closeUser);
+$('#drawer').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeUser(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUser(); });
+
+// ── Start ──
+if (token) showApp(); else signOut();
+</script>
+</body>
+</html>

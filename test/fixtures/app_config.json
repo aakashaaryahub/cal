@@ -1,0 +1,182 @@
+{
+ "ok": true,
+ "version": "2026-10-18 15:21:11",
+ "calls": {
+  "provider": "daily",
+  "enabled": false
+ },
+ "plans": [
+  {
+   "id": "weekly",
+   "title": "Weekly",
+   "amountPaise": 49900,
+   "price": 499,
+   "currency": "INR",
+   "days": 7,
+   "perWeek": 499,
+   "badge": null,
+   "sortOrder": 1,
+   "active": true
+  },
+  {
+   "id": "monthly",
+   "title": "Monthly",
+   "amountPaise": 99900,
+   "price": 999,
+   "currency": "INR",
+   "days": 30,
+   "perWeek": 233,
+   "badge": "MOST POPULAR",
+   "sortOrder": 2,
+   "active": true
+  },
+  {
+   "id": "yearly",
+   "title": "Yearly",
+   "amountPaise": 499900,
+   "price": 4999,
+   "currency": "INR",
+   "days": 365,
+   "perWeek": 96,
+   "badge": "BEST VALUE · SAVE 80%",
+   "sortOrder": 3,
+   "active": true
+  }
+ ],
+ "content": {
+  "intro": {
+   "title": "Make a new friend\nin one tap",
+   "subtitle": "Anonymous voice calls with real people around the world. No video, no pressure.",
+   "chips": [
+    "🎧 HD voice",
+    "🔒 Number stays private",
+    "🔞 18+ only"
+   ],
+   "avatars": [
+    {
+     "name": "Aanya",
+     "countryCode": "IN"
+    },
+    {
+     "name": "Lucas",
+     "countryCode": "BR"
+    },
+    {
+     "name": "Mei",
+     "countryCode": "JP"
+    },
+    {
+     "name": "Omar",
+     "countryCode": "AE"
+    },
+    {
+     "name": "Chloe",
+     "countryCode": "FR"
+    },
+    {
+     "name": "Jake",
+     "countryCode": "US"
+    }
+   ]
+  },
+  "tips": [
+   {
+    "emoji": "💬",
+    "text": "Say hi first, most people are just as nervous as you."
+   },
+   {
+    "emoji": "🛡️",
+    "text": "Never share your number or address. Report anyone who makes you uncomfortable."
+   },
+   {
+    "emoji": "⏭️",
+    "text": "Not vibing? Tap Next to meet someone new instantly."
+   },
+   {
+    "emoji": "💞",
+    "text": "Liked talking to someone? Follow them. If they follow back, you can chat and call."
+   },
+   {
+    "emoji": "👑",
+    "text": "Premium lets you choose to talk only with women or men."
+   }
+  ],
+  "genderOptions": [
+   {
+    "value": "any",
+    "label": "Anyone",
+    "emoji": "🌍",
+    "premium": false
+   },
+   {
+    "value": "female",
+    "label": "Women",
+    "emoji": "👩",
+    "premium": true
+   },
+   {
+    "value": "male",
+    "label": "Men",
+    "emoji": "👨",
+    "premium": true
+   }
+  ],
+  "matching": {
+   "headline": {
+    "any": "Finding someone to talk to…",
+    "female": "Looking for a woman to talk to…",
+    "male": "Looking for a man to talk to…"
+   },
+   "messages": [
+    "Scanning across the globe…",
+    "Good conversations are worth the wait…",
+    "Almost there…"
+   ]
+  },
+  "premium": {
+   "title": "VoxLink Premium",
+   "subtitle": "Choose who you talk to.",
+   "benefits": [
+    {
+     "emoji": "👩",
+     "title": "Talk only to women",
+     "subtitle": "Pick who you want to meet, every time."
+    },
+    {
+     "emoji": "👨",
+     "title": "Talk only to men",
+     "subtitle": "Switch your preference whenever you like."
+    },
+    {
+     "emoji": "🔓",
+     "title": "No auto-renewal",
+     "subtitle": "Pay once for the period. No surprise charges."
+    }
+   ],
+   "footer": "One-time payment via Razorpay (UPI, cards, net banking). Does not renew automatically."
+  },
+  "reportReasons": [
+   "Inappropriate or sexual content",
+   "Harassment or hate speech",
+   "Underage user",
+   "Spam or scam",
+   "Other"
+  ]
+ },
+ "activeCountries": [
+  "IN",
+  "US",
+  "BR",
+  "JP",
+  "GB",
+  "AE",
+  "FR",
+  "DE",
+  "KR",
+  "NG"
+ ],
+ "limits": {
+  "minAge": 18,
+  "maxAge": 99
+ }
+}

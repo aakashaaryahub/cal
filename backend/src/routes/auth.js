@@ -26,6 +26,14 @@ function hasAccount(phone) {
   return Boolean(db.get('SELECT id FROM users WHERE phone = ? AND profile_completed = 1', [phone]));
 }
 
+// Google Play's reviewers can't receive our SMS, so one number set on the
+// server (REVIEW_PHONE) gets a fixed code (REVIEW_OTP, 6 digits) instead.
+function reviewOtp(phone) {
+  const reviewPhone = normalizePhone(process.env.REVIEW_PHONE);
+  const code = String(process.env.REVIEW_OTP || '');
+  return reviewPhone && phone === reviewPhone && /^\d{6}$/.test(code) ? code : null;
+}
+
 const NO_ACCOUNT = { ok: false, code: 'NO_ACCOUNT', error: 'No account found with this number. Sign up first.' };
 
 router.post('/otp/send', async (req, res, next) => {
@@ -43,13 +51,14 @@ router.post('/otp/send', async (req, res, next) => {
       return res.status(429).json({ ok: false, error: 'Please wait a few seconds before requesting another code' });
     }
 
-    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const fixedCode = reviewOtp(phone);
+    const code = fixedCode || String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
     db.run('DELETE FROM otps WHERE phone = ?', [phone]);
     db.insert('INSERT INTO otps (phone, code, expires_at) VALUES (?, ?, ?)', [phone, hashOtp(phone, code), expires]);
 
     try {
-      await sendOtpSms(phone, code);
+      if (!fixedCode) await sendOtpSms(phone, code);
     } catch (err) {
       // The code never arrived: drop it so the user can retry straight away.
       db.run('DELETE FROM otps WHERE phone = ?', [phone]);

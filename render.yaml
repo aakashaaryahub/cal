@@ -43,6 +43,11 @@ services:
         sync: false
       - key: ADMIN_TOKEN
         sync: false
+      # Login for Google Play's reviewers (see backend/.env.example).
+      - key: REVIEW_PHONE
+        sync: false
+      - key: REVIEW_OTP
+        sync: false
       - key: GOOGLE_PLAY_PACKAGE
         value: com.voxlink.app
       # Fill in after the Play Console setup (see README). Empty = test purchases.

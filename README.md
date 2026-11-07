@@ -151,6 +151,7 @@ The queue lives in a single-process SQLite database (`sql.js`). That's fine for 
 
 ## Before you publish
 
+- **Reviewer login.** Play's reviewers can't receive your SMS. Set `REVIEW_PHONE` and `REVIEW_OTP` on the server and give both in Play Console → **App content → App access**; that one number skips the SMS and accepts the fixed code.
 - **Random-chat apps** get extra review on both stores. You'll need working report/block (already built), an 18+ age gate (already enforced), a privacy policy, and a moderation process for reports.
 - **SMS.** OTPs go out through PowersText with a DLT-registered template, so only Indian (+91) mobile numbers can sign up. The message text in `backend/src/sms.js` must match the template word for word; if you change the template, change it there too.
 - **Android release.** The app ID is `com.voxlink.app`. Release builds are signed with the upload key in `android/key.properties` (see `android/key.properties.example`); without it they fall back to debug keys, which Play rejects.

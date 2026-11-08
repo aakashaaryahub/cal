@@ -44,11 +44,11 @@ app.use('/api/admin', adminRoutes);
 // Admin dashboard (signs in against /api/admin/login).
 app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
 
-// Public pages linked from the Play listing: home page, privacy policy, terms and web account deletion.
+// Public pages linked from the Play listing: home page, privacy policy, terms, child safety standards and web account deletion.
 const publicDir = path.join(__dirname, '..', 'public');
 app.use('/public', express.static(publicDir));
 const supportEmail = String(process.env.SUPPORT_EMAIL || '').replace(/[^\w.+@-]/g, '');
-for (const page of ['index', 'privacy', 'terms', 'delete-account']) {
+for (const page of ['index', 'privacy', 'terms', 'child-safety', 'delete-account']) {
   const html = fs.readFileSync(path.join(publicDir, `${page}.html`), 'utf8').replaceAll('{{SUPPORT_EMAIL}}', supportEmail);
   app.get(page === 'index' ? '/' : `/${page}`, (_req, res) => res.type('html').send(html));
 }

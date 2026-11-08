@@ -33,6 +33,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
   int _elapsed = 0;
   int _waiting = 0;
   String? _error;
+  bool _outOfMinutes = false;
   MatchResult? _match;
 
   List<String> get _messages => [
@@ -94,7 +95,11 @@ class _MatchingScreenState extends State<MatchingScreen> {
       }
       _poll?.cancel();
       _clock?.cancel();
-      setState(() => _error = e.message);
+      if (e.isCallLimit) _done = true;
+      setState(() {
+        _error = e.message;
+        _outOfMinutes = e.isCallLimit;
+      });
     } finally {
       _inFlight = false;
     }
@@ -114,6 +119,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
         token: r.token!,
         peer: r.peer!,
         genderFilter: widget.genderFilter,
+        limitSeconds: r.limitSeconds,
       )));
     });
   }
@@ -278,14 +284,26 @@ class _MatchingScreenState extends State<MatchingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('📡', style: TextStyle(fontSize: 56)).animate().shake(),
+          Text(_outOfMinutes ? '⏳' : '📡', style: const TextStyle(fontSize: 56)).animate().shake(),
           const SizedBox(height: 16),
           Text(_error!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
           const SizedBox(height: 24),
-          SizedBox(
-            width: 180,
-            child: GradientButton(label: 'Try again', height: 50, onTap: _start),
-          ),
+          if (!_outOfMinutes)
+            SizedBox(
+              width: 180,
+              child: GradientButton(label: 'Try again', height: 50, onTap: _start),
+            )
+          else if (ConfigStore.current.premiumEnabled && !(Storage.user?.hasActivePremium ?? false))
+            SizedBox(
+              width: 200,
+              child: GradientButton(
+                label: 'Get Premium',
+                height: 50,
+                onTap: () => Navigator.of(context).pushReplacement(fadeRoute(const PremiumScreen())),
+              ),
+            )
+          else
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back to home')),
         ],
       ),
     );

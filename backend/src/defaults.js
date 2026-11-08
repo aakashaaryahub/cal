@@ -4,16 +4,28 @@
 // by later versions). After that the database is the source of truth: edit
 // through the admin API, not here.
 
+// Plan IDs are also the Google Play product IDs. Yearly is kept but hidden:
+// with per-minute call costs, a heavy yearly user can cost more than they pay.
 const PLANS = [
-  { id: 'weekly', title: 'Weekly', amountPaise: 49900, days: 7, badge: null, sortOrder: 1 },
-  { id: 'monthly', title: 'Monthly', amountPaise: 99900, days: 30, badge: 'MOST POPULAR', sortOrder: 2 },
-  { id: 'yearly', title: 'Yearly', amountPaise: 499900, days: 365, badge: 'BEST VALUE · SAVE 80%', sortOrder: 3 },
+  { id: 'daypass', title: 'Day Pass', amountPaise: 3900, days: 1, badge: null, sortOrder: 1, active: true },
+  { id: 'weekly', title: 'Weekly', amountPaise: 14900, days: 7, badge: null, sortOrder: 2, active: true },
+  { id: 'monthly', title: 'Monthly', amountPaise: 39900, days: 30, badge: 'MOST POPULAR', sortOrder: 3, active: true },
+  { id: 'yearly', title: 'Yearly', amountPaise: 399900, days: 365, badge: null, sortOrder: 4, active: false },
 ];
+
+// Bumped when a release changes plans or the content keys in REVISED_KEYS;
+// the server then applies them once to an existing database.
+const CONTENT_REVISION = 2;
+const REVISED_KEYS = ['premium', 'genderOptions', 'matching', 'tips', 'callLimits'];
 
 const CONTENT = {
   // Whether choosing who you talk to needs Premium. Off: everyone can pick any
   // gender for free and the app hides Premium. Switch it in the admin dashboard.
   premiumEnabled: false,
+
+  // Minutes of calls a day (random and friend calls together); 0 = unlimited.
+  // Days run midnight to midnight India time.
+  callLimits: { freeMinutesPerDay: 15, premiumMinutesPerDay: 120 },
 
   // Shared from the app's Invite button. {code} becomes the user's invite code;
   // `link` (e.g. the Play Store page) is added on its own line when set.
@@ -43,33 +55,34 @@ const CONTENT = {
     { emoji: '⏭️', text: 'Not vibing? Tap Next to meet someone new instantly.' },
     { emoji: '💞', text: 'Liked talking to someone? Follow them. If they follow back, you can chat and call.' },
     // `premium: true` tips only show while Premium is switched on.
-    { emoji: '👑', text: 'Premium lets you choose to talk only with women or men.', premium: true },
+    { emoji: '👑', text: 'Premium gives you {premiumMinutes} minutes of calls a day and lets you choose female or male.', premium: true },
     { emoji: '🎁', text: 'Invite a friend with your code: you become friends the moment they join.' },
   ],
 
   // Who you can ask to be matched with. `premium: true` options need Premium.
   genderOptions: [
     { value: 'any', label: 'Anyone', emoji: '🌍', premium: false },
-    { value: 'female', label: 'Women', emoji: '👩', premium: true },
-    { value: 'male', label: 'Men', emoji: '👨', premium: true },
+    { value: 'female', label: 'Female', emoji: '👩', premium: true },
+    { value: 'male', label: 'Male', emoji: '👨', premium: true },
   ],
 
   matching: {
     // First line depends on the filter; the rest rotate while searching.
     headline: {
       any: 'Finding someone to talk to…',
-      female: 'Looking for a woman to talk to…',
-      male: 'Looking for a man to talk to…',
+      female: 'Looking for a female to talk to…',
+      male: 'Looking for a male to talk to…',
     },
     messages: ['Scanning across the globe…', 'Good conversations are worth the wait…', 'Almost there…'],
   },
 
   premium: {
     title: 'VoxLink Premium',
-    subtitle: 'Choose who you talk to.',
+    subtitle: 'Talk more. Choose who you talk to.',
+    // {freeMinutes} and {premiumMinutes} are filled in from callLimits.
     benefits: [
-      { emoji: '👩', title: 'Talk only to women', subtitle: 'Pick who you want to meet, every time.' },
-      { emoji: '👨', title: 'Talk only to men', subtitle: 'Switch your preference whenever you like.' },
+      { emoji: '⏱️', title: '{premiumMinutes} minutes of calls a day', subtitle: 'Free users get {freeMinutes} minutes a day.' },
+      { emoji: '🎯', title: 'Choose female or male', subtitle: 'Talk only to the people you want to meet.' },
       { emoji: '🔓', title: 'No auto-renewal', subtitle: 'Pay once for the period. No surprise charges.' },
     ],
     footer: 'One-time payment through Google Play. Does not renew automatically.',
@@ -84,4 +97,4 @@ const CONTENT = {
   ],
 };
 
-module.exports = { PLANS, CONTENT };
+module.exports = { PLANS, CONTENT, CONTENT_REVISION, REVISED_KEYS };

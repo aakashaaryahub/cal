@@ -14,6 +14,8 @@ const MAX_ATTEMPTS = 5;
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/[^\d]/g, '');
   if (digits.length < 8 || digits.length > 15) return null;
+  // Indian numbers (+91) are always 10 digits after the country code.
+  if (digits.startsWith('91') && digits.length !== 12) return null;
   return `+${digits}`;
 }
 
@@ -40,7 +42,7 @@ router.post('/otp/send', async (req, res, next) => {
   try {
     const phone = normalizePhone(req.body.phone);
     if (!phone) {
-      return res.status(400).json({ ok: false, error: 'Enter a valid phone number' });
+      return res.status(400).json({ ok: false, error: 'Enter a valid phone number (10 digits for India)' });
     }
     if (db.banFor(phone)) return res.status(403).json(BANNED);
     if (req.body.mode === 'login' && !hasAccount(phone)) {

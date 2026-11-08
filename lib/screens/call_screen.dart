@@ -26,6 +26,10 @@ class CallScreen extends StatefulWidget {
   /// A call to a friend (vs. a random match): no "Next" button.
   final bool isDirect;
 
+  /// Seconds left of today's call minutes; the call ends when they run out.
+  /// null = no limit.
+  final int? limitSeconds;
+
   const CallScreen({
     super.key,
     required this.callId,
@@ -34,6 +38,7 @@ class CallScreen extends StatefulWidget {
     required this.peer,
     this.genderFilter = 'any',
     this.isDirect = false,
+    this.limitSeconds,
   });
 
   @override
@@ -90,6 +95,8 @@ class _CallScreenState extends State<CallScreen> {
       HapticFeedback.mediumImpact();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() => _seconds++);
+        final limit = widget.limitSeconds;
+        if (limit != null && _seconds >= limit) _engine.leave(CallEndReason.limitReached);
       });
     }
     if (phase == CallPhase.ended) _finish();
@@ -106,6 +113,9 @@ class _CallScreenState extends State<CallScreen> {
     Api.endCall(widget.callId, _seconds);
     if (!mounted) return;
     HapticFeedback.mediumImpact();
+    // "Next" with no minutes left would only be refused by the server.
+    final limit = widget.limitSeconds;
+    if (next && limit != null && limit - _seconds < 30) next = false;
     final page = next
         ? MatchingScreen(genderFilter: widget.genderFilter)
         : CallSummaryScreen(

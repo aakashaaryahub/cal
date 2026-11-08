@@ -13,8 +13,8 @@
 //   GET    /api/admin/calls              ?kind=random|direct&limit=&offset=
 //   GET    /api/admin/follows            ?limit=&offset=
 //   POST   /api/admin/users/:id/demo-activity   testing only: demo friends, chat, report
-//   GET    /api/admin/settings           { premiumEnabled }
-//   PUT    /api/admin/settings           { premiumEnabled: true|false }
+//   GET    /api/admin/settings           { premiumEnabled, callLimits }
+//   PUT    /api/admin/settings           { premiumEnabled?: bool, callLimits?: { freeMinutesPerDay, premiumMinutesPerDay } }
 //   GET    /api/admin/content            all content keys
 //   PUT    /api/admin/content/:key       { value: <any JSON> }
 //   GET    /api/admin/plans              all plans, including inactive
@@ -31,6 +31,7 @@ const db = require('../db');
 const content = require('../content');
 const rel = require('../relations');
 const daily = require('../daily');
+const limits = require('../limits');
 
 const router = express.Router();
 
@@ -486,16 +487,35 @@ router.delete('/users/:id/ban', (req, res) => {
   res.json({ ok: true });
 });
 
-router.get('/settings', (_req, res) => {
-  res.json({ ok: true, premiumEnabled: content.premiumEnabled() });
-});
+const settingsBody = () => ({ ok: true, premiumEnabled: content.premiumEnabled(), callLimits: limits.settings() });
+
+router.get('/settings', (_req, res) => res.json(settingsBody()));
+
+// Minutes a day, 0 = unlimited, up to 24 hours.
+const validMinutes = (v) => Number.isInteger(v) && v >= 0 && v <= 1440;
 
 router.put('/settings', (req, res) => {
-  if (typeof req.body.premiumEnabled !== 'boolean') {
-    return res.status(400).json({ ok: false, error: 'Body must be { "premiumEnabled": true | false }' });
+  const { premiumEnabled, callLimits } = req.body || {};
+  if (premiumEnabled === undefined && callLimits === undefined) {
+    return res.status(400).json({ ok: false, error: 'Send premiumEnabled and/or callLimits' });
   }
-  content.setContent('premiumEnabled', req.body.premiumEnabled);
-  res.json({ ok: true, premiumEnabled: content.premiumEnabled() });
+  if (premiumEnabled !== undefined && typeof premiumEnabled !== 'boolean') {
+    return res.status(400).json({ ok: false, error: 'premiumEnabled must be true or false' });
+  }
+  if (
+    callLimits !== undefined &&
+    !(callLimits && validMinutes(callLimits.freeMinutesPerDay) && validMinutes(callLimits.premiumMinutesPerDay))
+  ) {
+    return res.status(400).json({ ok: false, error: 'Call limits must be whole minutes from 0 (unlimited) to 1440' });
+  }
+  if (premiumEnabled !== undefined) content.setContent('premiumEnabled', premiumEnabled);
+  if (callLimits !== undefined) {
+    content.setContent('callLimits', {
+      freeMinutesPerDay: callLimits.freeMinutesPerDay,
+      premiumMinutesPerDay: callLimits.premiumMinutesPerDay,
+    });
+  }
+  res.json(settingsBody());
 });
 
 // ── Content & plans ──

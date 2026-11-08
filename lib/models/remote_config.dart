@@ -65,11 +65,11 @@ class RemoteConfig {
       .whereType<Plan>()
       .toList();
 
-  /// Cheapest weekly price across plans, for "from ₹X/week" teasers.
-  int? get lowestPerWeek {
+  /// Cheapest daily price across plans, for "from ₹X/day" teasers.
+  int? get lowestPerDay {
     final p = plans;
     if (p.isEmpty) return null;
-    return p.map((e) => e.perWeek).reduce((a, b) => a < b ? a : b);
+    return p.map((e) => e.perDay).reduce((a, b) => a < b ? a : b);
   }
 
   List<String> get activeCountries =>

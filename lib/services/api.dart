@@ -14,6 +14,9 @@ class ApiException implements Exception {
   ApiException(this.message, {this.status = 0, this.code});
 
   bool get isPremiumRequired => code == 'PREMIUM_REQUIRED';
+
+  /// Today's call minutes are used up.
+  bool get isCallLimit => code == 'CALL_LIMIT';
   bool get isUnauthorized => status == 401;
 
   @override
@@ -30,12 +33,16 @@ class MatchResult {
   final String? roomUrl;
   final String? token;
 
+  /// Seconds this user can still talk today; null = no limit.
+  final int? limitSeconds;
+
   MatchResult.fromJson(Map<String, dynamic> j)
       : status = (j['status'] ?? 'idle').toString(),
         waiting = (j['waiting'] as num?)?.toInt() ?? 0,
         callId = (j['call']?['id'] as num?)?.toInt(),
         roomUrl = j['call']?['roomUrl']?.toString(),
         token = j['call']?['token']?.toString(),
+        limitSeconds = (j['call']?['limitSeconds'] as num?)?.toInt(),
         peer = j['peer'] == null ? null : Peer.fromJson(Map<String, dynamic>.from(j['peer']));
 
   bool get isMatched => status == 'matched' && roomUrl != null && token != null && peer != null;
@@ -46,6 +53,7 @@ class Plan {
   final String title;
   final int price;
   final int perWeek;
+  final int perDay;
   final int days;
   final String? badge;
 
@@ -54,6 +62,7 @@ class Plan {
         title = j['title'].toString(),
         price = (j['price'] as num).round(),
         perWeek = (j['perWeek'] as num).round(),
+        perDay = (j['perDay'] as num?)?.round() ?? ((j['price'] as num) / (j['days'] as num)).round(),
         days = (j['days'] as num).toInt(),
         badge = j['badge']?.toString();
 }
@@ -131,15 +140,39 @@ class DirectCall {
   final String? roomUrl;
   final String? token;
 
+  /// Seconds this user can still talk today; null = no limit.
+  final int? limitSeconds;
+
   DirectCall.fromJson(Map<String, dynamic> j)
       : id = (j['id'] as num).toInt(),
         status = j['status'].toString(),
         roomUrl = j['roomUrl']?.toString(),
         token = j['token']?.toString(),
+        limitSeconds = (j['limitSeconds'] as num?)?.toInt(),
         peer = Peer.fromJson(Map<String, dynamic>.from(j['peer']));
 
   bool get isRinging => status == 'ringing';
   bool get isConnected => status == 'connected' && roomUrl != null && token != null;
+}
+
+/// Today's call minutes (days run midnight to midnight India time).
+class CallAllowance {
+  final bool premium;
+
+  /// 0 = unlimited.
+  final int limitMinutes;
+  final int usedSeconds;
+
+  /// null = unlimited.
+  final int? remainingSeconds;
+
+  CallAllowance.fromJson(Map<String, dynamic> j)
+      : premium = j['premium'] == true,
+        limitMinutes = (j['limitMinutes'] as num?)?.toInt() ?? 0,
+        usedSeconds = (j['usedSeconds'] as num?)?.toInt() ?? 0,
+        remainingSeconds = (j['remainingSeconds'] as num?)?.toInt();
+
+  bool get unlimited => remainingSeconds == null;
 }
 
 class LeaderEntry {
@@ -304,6 +337,11 @@ class Api {
   static Future<int> onlineCount() async {
     final res = await _request('GET', '/match/online-count');
     return (res['count'] as num?)?.toInt() ?? 0;
+  }
+
+  static Future<CallAllowance> callAllowance() async {
+    final res = await _request('GET', '/match/allowance');
+    return CallAllowance.fromJson(Map<String, dynamic>.from(res['allowance'] as Map));
   }
 
   static Future<MatchResult> joinQueue(String genderFilter) async =>

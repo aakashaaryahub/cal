@@ -3,7 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../models/user_profile.dart';
 import '../services/api.dart';
 import '../services/call_engine.dart';
+import '../services/config_store.dart';
 import '../services/social_store.dart';
+import '../services/storage.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../widgets/aurora_background.dart';
@@ -13,6 +15,7 @@ import '../widgets/social_widgets.dart';
 import 'chat_screen.dart';
 import 'call_screen.dart';
 import 'matching_screen.dart';
+import 'premium_screen.dart';
 
 class CallSummaryScreen extends StatefulWidget {
   final Peer peer;
@@ -56,7 +59,14 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
         CallEndReason.network => 'Connection lost',
         CallEndReason.error => 'Call couldn\'t start',
         CallEndReason.hungUp => 'Call ended',
+        CallEndReason.limitReached => 'That\'s all your minutes for today',
       };
+
+  bool get _limitReached => widget.reason == CallEndReason.limitReached;
+
+  /// Out of minutes and Premium would give more.
+  bool get _offerPremium =>
+      _limitReached && ConfigStore.current.premiumEnabled && !(Storage.user?.hasActivePremium ?? false);
 
   Future<void> _report() async {
     final reason = await showReportSheet(context, widget.peer.name);
@@ -116,6 +126,16 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
                       ),
                     ],
                   ).animate().fadeIn(delay: 220.ms),
+                if (_limitReached) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _offerPremium
+                        ? 'Get Premium for more minutes every day, or come back tomorrow.'
+                        : 'Your minutes reset at midnight. See you tomorrow!',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.pink, fontWeight: FontWeight.w600),
+                  ).animate().fadeIn(delay: 240.ms),
+                ],
                 const SizedBox(height: 6),
                 PeerStatsLine(peer: peer).animate().fadeIn(delay: 260.ms),
                 if (peer.canInteract && !_reported) ...[
@@ -163,13 +183,20 @@ class _CallSummaryScreenState extends State<CallSummaryScreen> {
                   ],
                 ],
                 const Spacer(),
-                GradientButton(
-                  label: 'Talk to someone new',
-                  icon: Icons.shuffle_rounded,
-                  onTap: () => Navigator.of(context).pushReplacement(
-                    fadeRoute(MatchingScreen(genderFilter: widget.genderFilter)),
-                  ),
-                ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.4),
+                if (_offerPremium)
+                  GradientButton(
+                    label: 'Get Premium',
+                    icon: Icons.workspace_premium_rounded,
+                    onTap: () => Navigator.of(context).pushReplacement(fadeRoute(const PremiumScreen())),
+                  ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.4)
+                else if (!_limitReached)
+                  GradientButton(
+                    label: 'Talk to someone new',
+                    icon: Icons.shuffle_rounded,
+                    onTap: () => Navigator.of(context).pushReplacement(
+                      fadeRoute(MatchingScreen(genderFilter: widget.genderFilter)),
+                    ),
+                  ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.4),
                 const SizedBox(height: 12),
                 Pressable(
                   onTap: () => Navigator.of(context).pop(),

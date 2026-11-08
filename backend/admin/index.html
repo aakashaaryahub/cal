@@ -188,6 +188,12 @@
   .setting h3 { margin-bottom: 4px; }
   .setting p { margin: 0; color: var(--text-2); font-size: 13px; max-width: 620px; }
   .setting .state { margin-top: 8px; font-size: 13px; font-weight: 600; }
+  .limits { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
+  .limits label { margin: 0 0 6px; }
+  .limits .input { width: 130px; }
+  .plan-row td { vertical-align: middle; }
+  .plan-row .input { height: 36px; padding: 0 10px; }
+  .plan-row .w-price { width: 100px; } .plan-row .w-days { width: 76px; } .plan-row .w-title { width: 130px; } .plan-row .w-badge { width: 150px; }
   .switch { position: relative; flex: none; width: 52px; height: 30px; border-radius: 30px; border: 0; cursor: pointer;
     background: var(--surface-high); box-shadow: inset 0 0 0 1px var(--stroke); transition: background .2s; }
   .switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%;
@@ -336,14 +342,36 @@
       <div class="card" style="padding:0">
         <div class="setting">
           <div>
-            <h3>Premium gender filter</h3>
-            <p><b>Off:</b> everyone can choose to talk to anyone, women or men for free, and the app hides Premium.
-            <b>On:</b> choosing women or men needs Premium, and the app shows plans and the paywall.</p>
+            <h3>Premium</h3>
+            <p><b>Off:</b> everyone can choose to talk to anyone, female or male, for free, and the app hides Premium.
+            <b>On:</b> choosing female or male needs Premium, and the app shows plans and the paywall.</p>
             <p class="state" id="premium-state"></p>
           </div>
-          <button class="switch" id="premium-switch" role="switch" aria-checked="false" aria-label="Premium gender filter" disabled></button>
+          <button class="switch" id="premium-switch" role="switch" aria-checked="false" aria-label="Premium" disabled></button>
+        </div>
+        <div class="setting">
+          <div>
+            <h3>Daily call minutes</h3>
+            <p>How long each person can talk per day, random and friend calls together. Resets at midnight India time.
+            A call ends when either person runs out. 0 = unlimited.</p>
+            <form class="limits" id="limits-form">
+              <div><label for="limit-free">Free users (min/day)</label><input class="input" id="limit-free" type="number" min="0" max="1440" step="1" required></div>
+              <div><label for="limit-premium">Premium users (min/day)</label><input class="input" id="limit-premium" type="number" min="0" max="1440" step="1" required></div>
+              <button class="btn" id="limits-save" type="submit">Save limits</button>
+            </form>
+            <p class="state" id="limits-state"></p>
+          </div>
         </div>
       </div>
+      <h2 style="margin-top:28px">Plans</h2>
+      <p class="faint" style="margin:-6px 0 12px;font-size:13px">The price buyers pay is set on the matching product in Play Console (Monetize → Products), with the plan ID as the product ID. Keep the price here the same, so revenue numbers are right. Inactive plans are hidden in the app.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Plan ID</th><th>Title</th><th>Price (₹)</th><th>Days</th><th>Badge</th><th>Active</th><th></th></tr></thead>
+          <tbody id="plan-rows"></tbody>
+        </table>
+      </div>
+      <p class="state" id="plans-state" style="font-size:13px;font-weight:600"></p>
       <p class="faint" style="margin-top:10px;font-size:13px">The server applies a change straight away. Apps pick it up the next time they open.</p>
     </section>
 
@@ -462,7 +490,7 @@ function dur(sec) {
   return s + 's';
 }
 const rupees = (paise) => '₹' + nf.format(Math.round((paise || 0) / 100));
-const genderLabel = (g) => ({ female: 'Woman', male: 'Man', other: 'Other' })[g] || (g ? g : '—');
+const genderLabel = (g) => ({ female: 'Female', male: 'Male', other: 'Other' })[g] || (g ? g : '—');
 const userLink = (p) => `<button class="link" data-user="${p.id}">${esc(p.name || 'No name')}</button>`;
 const who = (p) => `<div class="who">${userLink(p)}${p.phone ? `<small>${esc(p.phone)}</small>` : ''}</div>`;
 
@@ -729,24 +757,96 @@ loaders.settings = async () => {
   const sw = $('#premium-switch');
   sw.disabled = true;
   try {
-    const { premiumEnabled } = await api('/settings');
+    const { premiumEnabled, callLimits } = await api('/settings');
     showPremium(premiumEnabled);
+    showLimits(callLimits);
   } catch (err) {
     if (err.message !== 'signed out') $('#premium-state').textContent = `Couldn't load: ${err.message}`;
   }
+  loadPlans();
 };
+
+function showLimits(l) {
+  $('#limit-free').value = l.freeMinutesPerDay;
+  $('#limit-premium').value = l.premiumMinutesPerDay;
+  const fmt = (m) => (m === 0 ? 'unlimited' : `${m} min/day`);
+  $('#limits-state').textContent = `Now: free ${fmt(l.freeMinutesPerDay)}, Premium ${fmt(l.premiumMinutesPerDay)}`;
+}
+$('#limits-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('#limits-save');
+  btn.disabled = true;
+  try {
+    const body = await api('/settings', 'PUT', {
+      callLimits: {
+        freeMinutesPerDay: Number($('#limit-free').value),
+        premiumMinutesPerDay: Number($('#limit-premium').value),
+      },
+    });
+    showLimits(body.callLimits);
+  } catch (err) {
+    if (err.message !== 'signed out') $('#limits-state').textContent = `Couldn't save: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function loadPlans() {
+  const rows = $('#plan-rows');
+  try {
+    const { plans } = await api('/plans');
+    rows.innerHTML = plans.map((p) => `<tr class="plan-row">
+      <td><code>${esc(p.id)}</code></td>
+      <td><input class="input w-title" name="title" value="${esc(p.title)}" aria-label="Title"></td>
+      <td><input class="input w-price" name="price" type="number" min="1" step="1" value="${esc(p.price)}" aria-label="Price in rupees"></td>
+      <td><input class="input w-days" name="days" type="number" min="1" step="1" value="${esc(p.days)}" aria-label="Days"></td>
+      <td><input class="input w-badge" name="badge" value="${esc(p.badge || '')}" placeholder="none" aria-label="Badge"></td>
+      <td><input name="active" type="checkbox" ${p.active ? 'checked' : ''} aria-label="Active"></td>
+      <td><button class="btn" data-save-plan="${esc(p.id)}">Save</button></td>
+    </tr>`).join('') || emptyRow(7, 'No plans');
+  } catch (err) {
+    rows.innerHTML = errorRow(7, err);
+  }
+}
+$('#plan-rows').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-save-plan]');
+  if (!btn) return;
+  const row = btn.closest('tr');
+  const val = (name) => row.querySelector(`[name="${name}"]`);
+  const price = Number(val('price').value);
+  const days = Number(val('days').value);
+  if (!val('title').value.trim() || !(price > 0) || !(days > 0)) {
+    $('#plans-state').textContent = 'Title, a price above 0 and days above 0 are required.';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const { plan } = await api('/plans/' + encodeURIComponent(btn.dataset.savePlan), 'PUT', {
+      title: val('title').value.trim(),
+      amountPaise: Math.round(price * 100),
+      days: Math.round(days),
+      badge: val('badge').value.trim() || null,
+      active: val('active').checked,
+    });
+    $('#plans-state').textContent = `Saved ${plan.title}: ₹${plan.price} for ${plan.days} day${plan.days === 1 ? '' : 's'}${plan.active ? '' : ' (hidden in the app)'}. Make the Play Console price match.`;
+  } catch (err) {
+    if (err.message !== 'signed out') $('#plans-state').textContent = `Couldn't save: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
 function showPremium(on) {
   const sw = $('#premium-switch');
   sw.setAttribute('aria-checked', String(on));
   sw.disabled = false;
-  $('#premium-state').textContent = on ? 'On: women/men filters need Premium' : 'Off: everyone can choose anyone for free';
+  $('#premium-state').textContent = on ? 'On: female/male filters need Premium' : 'Off: everyone can choose anyone for free';
 }
 $('#premium-switch').addEventListener('click', async () => {
   const sw = $('#premium-switch');
   const next = sw.getAttribute('aria-checked') !== 'true';
   const msg = next
-    ? 'Turn Premium ON? Free users will lose the women/men filter and see the paywall.'
-    : 'Turn Premium OFF? Everyone gets the women/men filter for free and Premium is hidden.';
+    ? 'Turn Premium ON? Free users will lose the female/male filter and see the paywall.'
+    : 'Turn Premium OFF? Everyone gets the female/male filter for free and Premium is hidden.';
   if (!confirm(msg)) return;
   sw.disabled = true;
   try {

@@ -13,6 +13,7 @@ const db = require('../db');
 const { auth } = require('../middleware/auth');
 const rel = require('../relations');
 const daily = require('../daily');
+const limits = require('../limits');
 
 const router = express.Router();
 const RING_SECONDS = 35;
@@ -30,13 +31,15 @@ function expireStale() {
 async function payload(call, viewer) {
   const peerId = Number(call.caller_id) === Number(viewer.id) ? call.callee_id : call.caller_id;
   const connected = call.status === 'connected';
-  const join = connected ? await daily.joinInfo(call.room_id, viewer) : null;
+  const limitSeconds = connected ? limits.forUser(viewer).remainingSeconds : null;
+  const join = connected ? await daily.joinInfo(call.room_id, viewer, limitSeconds ?? undefined) : null;
   return {
     id: Number(call.id),
     status: call.status,
     roomId: connected ? call.room_id : null,
     roomUrl: join?.roomUrl ?? null,
     token: join?.token ?? null,
+    limitSeconds,
     peer: db.peerUser(db.get('SELECT * FROM users WHERE id = ?', [peerId])),
   };
 }
@@ -66,6 +69,8 @@ router.post('/', auth, (req, res, next) => {
   if (!daily.isConfigured()) {
     return res.status(503).json({ ok: false, code: 'CALL_SETUP_FAILED', error: 'Voice calls aren\'t set up on the server yet.' });
   }
+  const overLimit = limits.blockedBody(req.user);
+  if (overLimit) return res.status(403).json(overLimit);
   const calleeId = Number(req.body.userId);
   if (!calleeId || !rel.areFriends(req.user.id, calleeId)) {
     return res.status(403).json({ ok: false, error: 'You can call once you both follow each other', code: 'NOT_FRIENDS' });
@@ -105,6 +110,12 @@ router.post('/:id/accept', auth, (req, res, next) => {
   if (!call) return;
   if (Number(call.callee_id) !== Number(req.user.id) || call.status !== 'ringing') {
     return res.status(409).json({ ok: false, error: 'This call is no longer ringing' });
+  }
+  const overLimit = limits.blockedBody(req.user);
+  if (overLimit) {
+    // Let the caller know instead of leaving them ringing.
+    db.run(`UPDATE calls SET status = 'declined', ended_at = datetime('now') WHERE id = ?`, [call.id]);
+    return res.status(403).json(overLimit);
   }
   db.run(`UPDATE calls SET status = 'connected', started_at = datetime('now') WHERE id = ?`, [call.id]);
   sendCall(res, db.get('SELECT * FROM calls WHERE id = ?', [call.id]), req.user).catch(next);

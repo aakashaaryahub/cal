@@ -107,17 +107,40 @@ async function init() {
 // Fills in plans and content keys that don't exist yet. Never overwrites
 // existing rows, so edits made through the admin API survive restarts.
 function seedDefaults() {
-  const { PLANS, CONTENT } = require('./defaults');
-  if (!get('SELECT 1 FROM plans LIMIT 1')) {
-    for (const p of PLANS) {
-      bindAndRun(
-        'INSERT INTO plans (id, title, amount_paise, days, badge, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-        [p.id, p.title, p.amountPaise, p.days, p.badge, p.sortOrder]
-      );
-    }
-  }
+  const { PLANS, CONTENT, CONTENT_REVISION, REVISED_KEYS } = require('./defaults');
+  const upsertPlan = (p) =>
+    bindAndRun(
+      `INSERT INTO plans (id, title, amount_paise, days, badge, sort_order, active, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title, amount_paise = excluded.amount_paise, days = excluded.days,
+         badge = excluded.badge, sort_order = excluded.sort_order, active = excluded.active,
+         updated_at = excluded.updated_at`,
+      [p.id, p.title, p.amountPaise, p.days, p.badge, p.sortOrder, p.active === false ? 0 : 1]
+    );
+  if (!get('SELECT 1 FROM plans LIMIT 1')) PLANS.forEach(upsertPlan);
   for (const [key, value] of Object.entries(CONTENT)) {
     bindAndRun('INSERT OR IGNORE INTO app_content (key, value) VALUES (?, ?)', [key, JSON.stringify(value)]);
+  }
+
+  // A release that changed plans or content applies them once, over older values.
+  const row = get(`SELECT value FROM app_content WHERE key = 'contentRevision'`);
+  const applied = Number(row ? JSON.parse(row.value) : 1);
+  if (applied < CONTENT_REVISION) {
+    PLANS.forEach(upsertPlan);
+    for (const key of REVISED_KEYS) {
+      bindAndRun(
+        `INSERT INTO app_content (key, value, updated_at) VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        [key, JSON.stringify(CONTENT[key])]
+      );
+    }
+    bindAndRun(
+      `INSERT INTO app_content (key, value, updated_at) VALUES ('contentRevision', ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      [JSON.stringify(CONTENT_REVISION)]
+    );
+    console.log(`[db] applied content revision ${CONTENT_REVISION}`);
   }
 }
 

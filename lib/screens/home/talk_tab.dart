@@ -24,6 +24,7 @@ class TalkTab extends StatefulWidget {
 class _TalkTabState extends State<TalkTab> {
   String _filter = Storage.user?.genderPreference ?? 'any';
   int? _online;
+  CallAllowance? _allowance;
   Timer? _onlineTimer;
   int _tip = 0;
   Timer? _tipTimer;
@@ -32,6 +33,7 @@ class _TalkTabState extends State<TalkTab> {
   void initState() {
     super.initState();
     _loadOnline();
+    _loadAllowance();
     _onlineTimer = Timer.periodic(const Duration(seconds: 20), (_) => _loadOnline());
     // Index wraps when read, since the tip list can change with fresh config.
     _tipTimer = Timer.periodic(const Duration(seconds: 6), (_) {
@@ -57,8 +59,16 @@ class _TalkTabState extends State<TalkTab> {
     } catch (_) {}
   }
 
+  Future<void> _loadAllowance() async {
+    try {
+      final a = await Api.callAllowance();
+      if (mounted) setState(() => _allowance = a);
+    } catch (_) {}
+  }
+
   Future<bool> _openPremium() async {
     final bought = await Navigator.of(context).push<bool>(fadeRoute(const PremiumScreen()));
+    if (bought == true) _loadAllowance();
     return bought == true;
   }
 
@@ -81,6 +91,8 @@ class _TalkTabState extends State<TalkTab> {
     await Navigator.of(context).push(fadeRoute(MatchingScreen(genderFilter: _filter)));
     widget.onCallFinished();
     _loadOnline();
+    // The call may still be reporting its length; give it a moment.
+    Future.delayed(const Duration(seconds: 2), _loadAllowance);
   }
 
   @override
@@ -111,6 +123,7 @@ class _TalkTabState extends State<TalkTab> {
                     _ConnectOrb(size: orb, onTap: _connect, filter: _filter),
                     const SizedBox(height: 12),
                     _filterSelector(unlocked),
+                    _allowanceLine(premium),
                     const SizedBox(height: 18),
                     _tipCard(),
                   ],
@@ -165,6 +178,38 @@ class _TalkTabState extends State<TalkTab> {
                 .shimmer(delay: 2500.ms, duration: 1400.ms, color: Colors.white.withValues(alpha: 0.7)),
           ),
       ],
+    );
+  }
+
+  /// "12 of 15 free minutes left today", hidden when there's no limit.
+  Widget _allowanceLine(bool premium) {
+    final a = _allowance;
+    if (a == null || a.unlimited) return const SizedBox.shrink();
+    final left = (a.remainingSeconds! / 60).floor();
+    final out = a.remainingSeconds! < 30;
+    final kind = a.premium ? 'Premium' : 'free';
+    final canUpgrade = !a.premium && ConfigStore.current.premiumEnabled;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Pressable(
+        onTap: canUpgrade ? _openPremium : null,
+        child: Text.rich(
+          TextSpan(
+            text: out
+                ? 'You\'ve used today\'s ${a.limitMinutes} $kind minutes. They reset at midnight.'
+                : '⏱️ $left of ${a.limitMinutes} $kind minutes left today',
+            children: [
+              if (canUpgrade)
+                const TextSpan(
+                  text: '  Get more',
+                  style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w700),
+                ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+          style: TextStyle(color: out ? AppColors.pink : AppColors.textSecondary, fontSize: 13),
+        ),
+      ),
     );
   }
 

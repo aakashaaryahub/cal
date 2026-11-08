@@ -12,6 +12,7 @@ const { auth } = require('../middleware/auth');
 const content = require('../content');
 const daily = require('../daily');
 const rel = require('../relations');
+const limits = require('../limits');
 
 const router = express.Router();
 
@@ -64,11 +65,13 @@ async function matchedPayload(callId, user) {
   const call = db.get('SELECT * FROM calls WHERE id = ?', [callId]);
   const peerId = Number(call.caller_id) === Number(user.id) ? call.callee_id : call.caller_id;
   const peer = db.get('SELECT * FROM users WHERE id = ?', [peerId]);
-  const { roomUrl, token } = await daily.joinInfo(call.room_id, user);
+  // Each side's token lasts as long as that person's minutes for today.
+  const { remainingSeconds } = limits.forUser(user);
+  const { roomUrl, token } = await daily.joinInfo(call.room_id, user, remainingSeconds ?? undefined);
   return {
     ok: true,
     status: 'matched',
-    call: { id: Number(call.id), roomId: call.room_id, roomUrl, token },
+    call: { id: Number(call.id), roomId: call.room_id, roomUrl, token, limitSeconds: remainingSeconds },
     peer: rel.profileFor(user.id, peer),
   };
 }
@@ -110,6 +113,8 @@ router.post('/join', auth, (req, res, next) => {
   if (!req.user.profile_completed) {
     return res.status(400).json({ ok: false, error: 'Complete your profile first' });
   }
+  const overLimit = limits.blockedBody(req.user);
+  if (overLimit) return res.status(403).json(overLimit);
 
   const now = Date.now();
   db.run('DELETE FROM match_queue WHERE user_id = ?', [req.user.id]);
@@ -143,6 +148,11 @@ router.get('/status', auth, (req, res, next) => {
 router.delete('/', auth, (req, res) => {
   db.run('DELETE FROM match_queue WHERE user_id = ?', [req.user.id]);
   res.json({ ok: true });
+});
+
+// Today's call minutes, for the Talk tab.
+router.get('/allowance', auth, (req, res) => {
+  res.json({ ok: true, allowance: limits.forUser(req.user) });
 });
 
 router.get('/online-count', auth, (_req, res) => {

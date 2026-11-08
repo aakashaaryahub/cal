@@ -153,7 +153,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     _label('I am a…'),
                     Row(
                       children: [
-                        for (final (i, g) in const [('female', 'Woman', '👩'), ('male', 'Man', '👨'), ('other', 'Other', '🌈')].indexed) ...[
+                        for (final (i, g) in const [('female', 'Female', '👩'), ('male', 'Male', '👨'), ('other', 'Other', '🌈')].indexed) ...[
                           if (i > 0) const SizedBox(width: 10),
                           Expanded(
                             child: _GenderChip(

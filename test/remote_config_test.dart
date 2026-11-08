@@ -43,12 +43,12 @@ void main() {
   group('RemoteConfig', () {
     test('parses the real server response', () {
       final c = RemoteConfig(fixture());
-      expect(c.plans.map((p) => '${p.id}:${p.price}:${p.perWeek}'), ['weekly:499:499', 'monthly:999:233', 'yearly:4999:96']);
-      expect(c.lowestPerWeek, 96);
+      expect(c.plans.map((p) => '${p.id}:${p.price}:${p.perDay}'), ['daypass:39:39', 'weekly:149:21', 'monthly:399:13']);
+      expect(c.lowestPerDay, 13);
       expect(c.tips, isNotEmpty);
       expect(c.genderOptions.map((o) => '${o.value}:${o.premium}'), ['any:false', 'female:true', 'male:true']);
       expect(c.reportReasons, contains('Underage user'));
-      expect(c.matchingHeadline('female'), 'Looking for a woman to talk to…');
+      expect(c.matchingHeadline('female'), 'Looking for a female to talk to…');
       expect(c.matchingHeadline('unknown'), 'Finding someone to talk to…');
       expect(c.activeCountries.first, 'IN');
       expect(c.premiumBenefits.length, 3);
@@ -65,7 +65,7 @@ void main() {
       ]) {
         final c = RemoteConfig(raw);
         expect(c.plans, isEmpty);
-        expect(c.lowestPerWeek, isNull);
+        expect(c.lowestPerDay, isNull);
         expect(c.tips, isEmpty);
         expect(c.genderOptions, isEmpty);
         expect(c.reportReasons, isEmpty);
@@ -129,7 +129,7 @@ void main() {
       await pumpPhone(tester, Scaffold(body: TalkTab(onCallFinished: () {})));
       expect(tester.takeException(), isNull);
       expect(find.text('Tip loaded from the database'), findsOneWidget);
-      expect(find.text('Women'), findsOneWidget);
+      expect(find.text('Female'), findsOneWidget);
       expect(find.byIcon(Icons.lock_rounded), findsNWidgets(2)); // free user: premium options locked
       expect(find.text('Go Premium'), findsOneWidget);
     });
@@ -144,7 +144,7 @@ void main() {
       expect(ConfigStore.current.tips.map((t) => t.text), ['Invite tip']);
       await pumpPhone(tester, Scaffold(body: TalkTab(onCallFinished: () {})));
       expect(tester.takeException(), isNull);
-      expect(find.text('Women'), findsOneWidget);
+      expect(find.text('Female'), findsOneWidget);
       expect(find.byIcon(Icons.lock_rounded), findsNothing);
       expect(find.text('Go Premium'), findsNothing);
     });

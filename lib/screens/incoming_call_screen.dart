@@ -79,6 +79,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen> {
         token: c.token!,
         peer: c.peer,
         isDirect: true,
+        limitSeconds: c.limitSeconds,
       )));
     } on ApiException catch (e) {
       _handled = true;

@@ -56,10 +56,12 @@ class _PremiumScreenState extends State<PremiumScreen> {
 
   String _price(Plan p) => _play[p.id]?.price ?? formatInr(p.price);
 
-  String _perWeek(Plan p) {
+  /// "₹13 a day", or for one-day plans what it is.
+  String _perDay(Plan p) {
+    if (p.days == 1) return 'Premium for 24 hours';
     final d = _play[p.id];
-    if (d == null) return formatInr(p.perWeek);
-    return '${d.currencySymbol}${(d.rawPrice / p.days * 7).round()}';
+    final perDay = d == null ? formatInr(p.perDay) : '${d.currencySymbol}${(d.rawPrice / p.days).round()}';
+    return 'Only $perDay a day';
   }
 
   void _setPlans(List<Plan> plans) {
@@ -284,7 +286,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
           _PlanCard(
             plan: p,
             price: _price(p),
-            perWeek: _perWeek(p),
+            perDay: _perDay(p),
             selected: p.id == _selected,
             onTap: () {
               HapticFeedback.selectionClick();
@@ -305,14 +307,14 @@ class _PremiumScreenState extends State<PremiumScreen> {
 class _PlanCard extends StatelessWidget {
   final Plan plan;
   final String price;
-  final String perWeek;
+  final String perDay;
   final bool selected;
   final VoidCallback onTap;
 
   const _PlanCard({
     required this.plan,
     required this.price,
-    required this.perWeek,
+    required this.perDay,
     required this.selected,
     required this.onTap,
   });
@@ -369,7 +371,7 @@ class _PlanCard extends StatelessWidget {
                       children: [
                         Text(plan.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                         Text(
-                          '$perWeek per week',
+                          perDay,
                           style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                         ),
                       ],

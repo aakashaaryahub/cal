@@ -72,6 +72,7 @@ class _OutgoingCallScreenState extends State<OutgoingCallScreen> {
           token: c.token!,
           peer: widget.peer,
           isDirect: true,
+          limitSeconds: c.limitSeconds,
         )));
       } else if (!c.isRinging) {
         _end(switch (c.status) {

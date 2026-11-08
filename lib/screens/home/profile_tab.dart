@@ -246,8 +246,8 @@ class ProfileTabState extends State<ProfileTab> {
                                       ? 'Until ${_short(user.premiumUntil!)} · tap to extend'
                                       : [
                                           ConfigStore.current.premiumSubtitle,
-                                          if (ConfigStore.current.lowestPerWeek != null)
-                                            'from ${formatInr(ConfigStore.current.lowestPerWeek!)}/week',
+                                          if (ConfigStore.current.lowestPerDay != null)
+                                            'from ${formatInr(ConfigStore.current.lowestPerDay!)}/day',
                                         ].join(' · '),
                                   style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                                 ),

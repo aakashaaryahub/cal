@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 enum CallPhase { idle, connecting, connected, reconnecting, ended }
 
-enum CallEndReason { hungUp, peerLeft, noAnswer, network, error }
+enum CallEndReason { hungUp, peerLeft, noAnswer, network, error, limitReached }
 
 class CallException implements Exception {
   final String message;

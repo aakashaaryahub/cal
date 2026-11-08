@@ -12,6 +12,7 @@ function planFromRow(r) {
     currency: 'INR',
     days,
     perWeek: Math.round((amountPaise / 100 / days) * 7),
+    perDay: Math.round(amountPaise / 100 / days),
     badge: r.badge || null,
     sortOrder: Number(r.sort_order),
     active: Boolean(r.active),

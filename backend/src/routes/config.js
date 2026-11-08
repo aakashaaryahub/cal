@@ -4,6 +4,7 @@ const express = require('express');
 const db = require('../db');
 const content = require('../content');
 const daily = require('../daily');
+const limits = require('../limits');
 
 const router = express.Router();
 
@@ -17,6 +18,19 @@ function activeCountries() {
   return rows.map((r) => r.cc);
 }
 
+/** Fills {freeMinutes} / {premiumMinutes} in content text from the current call limits. */
+function fillLimits(value) {
+  const s = limits.settings();
+  const minutes = { free: s.freeMinutesPerDay, premium: s.premiumMinutesPerDay };
+  const json = JSON.stringify(value).replace(/\{(free|premium)Minutes\}( minutes)?/g, (_m, which, unit, offset, all) => {
+    const n = minutes[which];
+    if (n > 0) return `${n}${unit || ''}`;
+    // 0 means unlimited; capitalise at the start of a string.
+    return (all[offset - 1] === '"' ? 'Unlimited' : 'unlimited') + (unit || '');
+  });
+  return JSON.parse(json);
+}
+
 router.get('/', (_req, res) => {
   res.json({
     ok: true,
@@ -24,7 +38,7 @@ router.get('/', (_req, res) => {
     calls: { provider: 'daily', enabled: daily.isConfigured() },
     premiumEnabled: content.premiumEnabled(),
     plans: content.plans(),
-    content: content.allContent(),
+    content: fillLimits(content.allContent()),
     activeCountries: activeCountries(),
     limits: { minAge: 18, maxAge: 99 },
   });

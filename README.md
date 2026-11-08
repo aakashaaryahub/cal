@@ -4,17 +4,21 @@ Anonymous voice calls with random strangers. Flutter app + Node.js backend, with
 
 **Flow:** splash → onboarding (name, age, gender, city, country, phone + OTP) → home. The session is saved on the device, so returning users go straight to home. Users who already have an account (new phone, reinstall, or after logging out) tap **Log in** on the intro screen and only verify their phone number.
 
-**Premium** lets users choose to talk only to women or only to men. It is **off by default**: everyone can pick any gender for free and the app hides Premium. Switch it on from the admin dashboard's **Settings** tab when you're ready to charge; the server enforces it immediately and apps pick it up on their next launch.
+**Premium** gives more call minutes a day and lets users choose to talk only to females or only to males. It is **off by default**: everyone can pick any gender for free and the app hides Premium. Switch it on from the admin dashboard's **Settings** tab when you're ready to charge; the server enforces it immediately and apps pick it up on their next launch.
+
+**Daily call minutes** keep the Daily.co bill under control: free users get 15 minutes a day and Premium users 120 (random and friend calls together, resetting at midnight India time). Change them in the admin dashboard's **Settings** tab; 0 means unlimited. A call ends when either person runs out: the app hangs up on time, and each person's Daily meeting token expires with their allowance as a backstop.
 
 **Invites** are the growth loop. Every user has an invite code (Profile → Invite friends, or the Chats tab when they have no friends yet). Anyone who signs up with it becomes their friend straight away, so they can chat and call without meeting on a random call first. The share text and an optional download link are the `invite` content key.
 
 Plans, once Premium is on:
 
-| Plan    | Price  | Per week |
-|---------|--------|----------|
-| Weekly  | ₹499   | ₹499     |
-| Monthly | ₹999   | ₹233     |
-| Yearly  | ₹4,999 | ₹96      |
+| Plan (ID)            | Price  | Per day |
+|----------------------|--------|---------|
+| Day Pass (`daypass`) | ₹39    | ₹39     |
+| Weekly (`weekly`)    | ₹149   | ₹21     |
+| Monthly (`monthly`)  | ₹399   | ₹13     |
+
+A Yearly plan (`yearly`, ₹3,999) exists but is hidden: with per-minute call costs, a heavy yearly user can cost more than they pay.
 
 Plans are one-time payments for the period and don't auto-renew; buying again adds the days on top. Each plan is a consumable Google Play in-app product with the same ID, and Play charges the price set in Play Console (the app shows Play's price). The database price is only a fallback for display and the revenue figure. See [Editing content and prices](#editing-content-and-prices).
 
@@ -48,7 +52,7 @@ For every call the server creates a private, audio-only room for two people and 
 
 ### 3. Google Play Billing (premium)
 
-1. In Play Console, open the app → **Monetize with Play → Products → One-time products** and create one product per plan. The **product ID must equal the plan ID** (`weekly`, `monthly`, `yearly`). Set the prices there and activate them.
+1. In Play Console, open the app → **Monetize with Play → Products → One-time products** and create one product per plan. The **product ID must equal the plan ID** (`daypass`, `weekly`, `monthly`). Set the prices there and activate them.
 2. In [Google Cloud Console](https://console.cloud.google.com), enable the **Google Play Android Developer API**, create a service account and download a JSON key.
 3. In Play Console → **Users and permissions**, invite the service account's email with **View financial data** and **Manage orders and subscriptions** for this app.
 4. Set `GOOGLE_PLAY_PACKAGE=com.voxlink.app` and `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (the key file's contents) on the server.
@@ -114,9 +118,9 @@ Nothing is cached on the device except the login token. On launch the app loads 
 **To edit**, set `ADMIN_TOKEN` (16+ characters) in `backend/.env`, restart, then:
 
 ```bash
-# Change the weekly price to ₹399
+# Change the weekly price to ₹129 (or use the Plans table in the admin Settings tab)
 curl -X PUT localhost:3000/api/admin/plans/weekly -H "x-admin-token: $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" -d '{"amountPaise": 39900}'
+  -H "Content-Type: application/json" -d '{"amountPaise": 12900}'
 
 # Add a plan / hide a plan
 curl -X PUT localhost:3000/api/admin/plans/quarterly -H "x-admin-token: $ADMIN_TOKEN" \

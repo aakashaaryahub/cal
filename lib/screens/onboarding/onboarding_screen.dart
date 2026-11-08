@@ -100,13 +100,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   String get _fullPhone => '+${_dialCountry!.phoneCode}${_phoneCtrl.text.replaceAll(RegExp(r'\D'), '')}';
 
+  /// Signing up from India: the number must be +91, which is always 10 digits.
+  bool get _indiaLocked => !_login && _country?.countryCode == 'IN';
+
+  bool get _isIndianNumber => _dialCountry?.countryCode == 'IN';
+
+  int get _phoneDigits => _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length;
+
   bool get _canContinue => switch (_step) {
         _Step.intro => true,
         _Step.name => _nameCtrl.text.trim().length >= 2,
         _Step.age => _age >= 18,
         _Step.gender => _gender != null,
         _Step.location => _country != null && _cityCtrl.text.trim().isNotEmpty,
-        _Step.phone => _phoneCtrl.text.replaceAll(RegExp(r'\D'), '').length >= 6,
+        _Step.phone => _isIndianNumber ? _phoneDigits == 10 : _phoneDigits >= 6,
         _Step.otp => _otpCtrl.text.length == 6,
       };
 
@@ -390,8 +397,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             children: [
               for (final (i, g) in const [
-                ('female', 'Woman', '👩'),
-                ('male', 'Man', '👨'),
+                ('female', 'Female', '👩'),
+                ('male', 'Male', '👨'),
                 ('other', 'Other', '🌈'),
               ].indexed)
                 _GenderOption(
@@ -412,7 +419,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               _SelectTile(
                 leading: Text(_country?.flagEmoji ?? '🌍', style: const TextStyle(fontSize: 26)),
                 label: _country?.name ?? 'Select country',
-                onTap: () => _pickCountry((c) => setState(() => _country = c)),
+                onTap: () => _pickCountry((c) => setState(() {
+                  _country = c;
+                  // Living in India means an Indian (+91) number.
+                  if (c.countryCode == 'IN' && !_isIndianNumber) {
+                    _dialCountry = c;
+                    _phoneCtrl.clear();
+                  }
+                })),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -446,7 +460,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       leading: Text(_dialCountry!.flagEmoji, style: const TextStyle(fontSize: 22)),
                       label: '+${_dialCountry!.phoneCode}',
                       compact: true,
-                      onTap: () => _pickCountry((c) => setState(() => _dialCountry = c), showPhoneCode: true),
+                      onTap: _indiaLocked
+                          ? null
+                          : () => _pickCountry((c) => setState(() => _dialCountry = c), showPhoneCode: true),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -455,14 +471,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       controller: _phoneCtrl,
                       autofocus: true,
                       keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(_isIndianNumber ? 10 : 13),
+                      ],
                       onSubmitted: (_) => _next(),
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 1.2),
-                      decoration: const InputDecoration(hintText: 'Phone number'),
+                      decoration: InputDecoration(hintText: _isIndianNumber ? '10-digit mobile number' : 'Phone number'),
                     ),
                   ),
                 ],
               ),
+              if (_indiaLocked)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8, left: 4),
+                  child: Text(
+                    'You chose India, so use your Indian (+91) mobile number.',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                ),
               if (!_login) _inviteField(),
               const _AgreeNote(),
             ],
@@ -798,7 +825,9 @@ class _GenderOption extends StatelessWidget {
 class _SelectTile extends StatelessWidget {
   final Widget leading;
   final String label;
-  final VoidCallback onTap;
+
+  /// null = fixed (can't be changed here).
+  final VoidCallback? onTap;
   final bool compact;
 
   const _SelectTile({

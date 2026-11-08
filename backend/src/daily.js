@@ -8,6 +8,8 @@
 // Needs DAILY_API_KEY (dashboard.daily.co -> Developers).
 const API = 'https://api.daily.co/v1';
 const MAX_CALL_SECONDS = 4 * 3600;
+// Time to connect before the call clock starts; the app hangs up on time itself.
+const TOKEN_GRACE_SECONDS = 30;
 
 /** A failure the app can show as-is. */
 class CallSetupError extends Error {}
@@ -64,9 +66,11 @@ function ensureRoom(name) {
 
 /**
  * What one person needs to join: the room URL and their own meeting token.
- * Throws CallSetupError when calls aren't set up or Daily is unreachable.
+ * The token (and so this person's time in the call) lasts `maxSeconds`, plus
+ * a little grace for connecting. Throws CallSetupError when calls aren't set
+ * up or Daily is unreachable.
  */
-async function joinInfo(roomName, user) {
+async function joinInfo(roomName, user, maxSeconds = MAX_CALL_SECONDS) {
   if (!isConfigured()) throw new CallSetupError('Voice calls aren\'t set up on the server yet (DAILY_API_KEY is missing).');
   try {
     const room = await ensureRoom(roomName);
@@ -75,7 +79,7 @@ async function joinInfo(roomName, user) {
         room_name: roomName,
         user_id: String(user.id),
         user_name: user.name || 'Stranger',
-        exp: Math.floor(Date.now() / 1000) + MAX_CALL_SECONDS,
+        exp: Math.floor(Date.now() / 1000) + Math.min(MAX_CALL_SECONDS, Math.max(0, maxSeconds) + TOKEN_GRACE_SECONDS),
         eject_at_token_exp: true,
         start_video_off: true,
         enable_screenshare: false,

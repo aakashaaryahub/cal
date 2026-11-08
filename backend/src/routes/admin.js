@@ -7,6 +7,7 @@
 //
 //   POST   /api/admin/login              { username, password } -> { token }
 //   GET    /api/admin/overview           totals, last 14 days, gender, countries
+//   GET    /api/admin/daily-usage        Daily.co participant minutes: today, this month (UTC)
 //   GET    /api/admin/users              ?q=&filter=all|onboarded|incomplete|premium&limit=&offset=
 //   GET    /api/admin/users/:id          profile, calls, followers, following, reports, payments
 //   GET    /api/admin/calls              ?kind=random|direct&limit=&offset=
@@ -29,6 +30,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const content = require('../content');
 const rel = require('../relations');
+const daily = require('../daily');
 
 const router = express.Router();
 
@@ -238,6 +240,45 @@ router.get('/overview', (_req, res) => {
     .map((r) => ({ country: r.country, countryCode: r.country_code, count: Number(r.n) }));
 
   res.json({ ok: true, totals, daily, gender, countries });
+});
+
+// Daily's meetings log is slow to page through, so it's read at most every 5 minutes.
+const USAGE_TTL_MS = 5 * 60 * 1000;
+let usageCache = null;
+
+router.get('/daily-usage', async (_req, res) => {
+  if (!daily.isConfigured()) return res.json({ ok: true, configured: false });
+  if (usageCache && Date.now() - usageCache.at < USAGE_TTL_MS) return res.json(usageCache.body);
+
+  const now = new Date();
+  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) / 1000;
+  const dayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 1000;
+  let log;
+  try {
+    log = await daily.meetings(monthStart, Math.ceil(Date.now() / 1000) + 60);
+  } catch (err) {
+    console.error('[admin] daily usage:', err.message);
+    return res.status(502).json({ ok: false, error: "Couldn't read usage from Daily. Check DAILY_API_KEY." });
+  }
+  const sum = (list) => Math.ceil(list.reduce((s, m) => s + m.participantSeconds, 0) / 60);
+  const today = log.meetings.filter((m) => m.start >= dayStart);
+  // The app's own call log, as a cross-check: two people per call.
+  const appSeconds = count(
+    `SELECT COALESCE(SUM(duration_seconds), 0) AS n FROM calls WHERE started_at >= ?`,
+    [new Date(monthStart * 1000).toISOString().slice(0, 19).replace('T', ' ')]
+  );
+  const body = {
+    ok: true,
+    configured: true,
+    month: { label: now.toISOString().slice(0, 7), meetings: log.meetings.length, participantMinutes: sum(log.meetings) },
+    today: { meetings: today.length, participantMinutes: sum(today) },
+    ongoing: log.meetings.filter((m) => m.ongoing).length,
+    appEstimateMinutes: Math.ceil((appSeconds * 2) / 60),
+    complete: log.complete,
+    checkedAt: new Date().toISOString(),
+  };
+  usageCache = { at: Date.now(), body };
+  res.json(body);
 });
 
 router.get('/users', (req, res) => {

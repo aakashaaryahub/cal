@@ -97,6 +97,33 @@ function deleteRoom(roomName) {
   });
 }
 
+/**
+ * Meetings that started in [from, to) (unix seconds), from Daily's meetings
+ * log: one entry per meeting with its start time, whether it's still going,
+ * and the seconds each participant spent in it (what Daily bills, as
+ * participant minutes). Stops after `maxPages` pages of 100.
+ */
+async function meetings(from, to, maxPages = 50) {
+  const out = [];
+  let cursor = null;
+  for (let page = 0; page < maxPages; page++) {
+    const qs = new URLSearchParams({ timeframe_start: String(from), timeframe_end: String(to), limit: '100' });
+    if (cursor) qs.set('starting_after', cursor);
+    const { data = [] } = await request('GET', `/meetings?${qs}`);
+    for (const m of data) {
+      const participants = Array.isArray(m.participants) ? m.participants : [];
+      out.push({
+        start: Number(m.start_time) || 0,
+        ongoing: Boolean(m.ongoing),
+        participantSeconds: participants.reduce((sum, p) => sum + (Number(p.duration) || 0), 0),
+      });
+    }
+    if (data.length < 100) return { meetings: out, complete: true };
+    cursor = data[data.length - 1].id;
+  }
+  return { meetings: out, complete: false };
+}
+
 /** Checks the API key against the domain endpoint, for the startup log. */
 async function describeDomain() {
   if (!isConfigured()) return 'DAILY_API_KEY not set: voice calls are off';
@@ -108,4 +135,4 @@ async function describeDomain() {
   }
 }
 
-module.exports = { isConfigured, joinInfo, deleteRoom, describeDomain, CallSetupError };
+module.exports = { isConfigured, joinInfo, deleteRoom, describeDomain, meetings, CallSetupError };

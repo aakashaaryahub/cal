@@ -247,6 +247,8 @@
     <section data-panel="overview">
       <h2>Overview</h2>
       <div class="tiles" id="tiles"></div>
+      <div class="card-head" style="margin-top:22px"><h3>Daily.co usage</h3><span class="faint" id="daily-note"></span></div>
+      <div class="tiles" id="daily-usage"><div class="tile"><div class="sub">Loading…</div></div></div>
       <div class="charts">
         <div class="card">
           <div class="card-head"><h3>New signups per day</h3><span class="faint">last 14 days, UTC</span></div>
@@ -376,10 +378,10 @@ const $ = (sel, root = document) => root.querySelector(sel);
 async function api(path, method = 'GET', body) {
   const headers = { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) };
   const res = await fetch('/api/admin' + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  const body = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({}));
   if (res.status === 401) { signOut('Your session expired. Sign in again.'); throw new Error('signed out'); }
-  if (!res.ok || body.ok === false) throw new Error(body.error || 'Request failed (' + res.status + ')');
-  return body;
+  if (!res.ok || data.ok === false) throw new Error(data.error || 'Request failed (' + res.status + ')');
+  return data;
 }
 
 $('#login-form').addEventListener('submit', async (e) => {
@@ -519,9 +521,36 @@ loaders.overview = async () => {
     .map(([k, v, s]) => `<div class="tile"><div class="label">${k}</div><div class="value">${v}</div><div class="sub">${esc(s)}</div></div>`)
     .join('');
   drawCharts();
+  loadDailyUsage();
   hbars('#gender', overview.gender.map((g) => [genderLabel(g.gender), g.count]));
   hbars('#countries', overview.countries.map((c) => [c.country, c.count]));
 };
+
+// Participant minutes on Daily (both people in a call count), straight from Daily's meetings log.
+async function loadDailyUsage() {
+  const box = $('#daily-usage');
+  let u;
+  try {
+    u = await api('/daily-usage');
+  } catch (err) {
+    if (err.message !== 'signed out') box.innerHTML = `<div class="tile"><div class="sub">Couldn't load: ${esc(err.message)}</div></div>`;
+    return;
+  }
+  if (!u.configured) {
+    box.innerHTML = `<div class="tile"><div class="sub">DAILY_API_KEY isn't set, so calls are off.</div></div>`;
+    return;
+  }
+  const tiles = [
+    ['This month', n(u.month.participantMinutes), `participant minutes · ${n(u.month.meetings)} calls (${esc(u.month.label)}, UTC)`],
+    ['Today', n(u.today.participantMinutes), `participant minutes · ${n(u.today.meetings)} calls`],
+    ['Live now', n(u.ongoing), 'calls in progress on Daily'],
+    ['App estimate', n(u.appEstimateMinutes), "this month, from VoxLink's call log"],
+  ];
+  box.innerHTML = tiles
+    .map(([k, v, s]) => `<div class="tile"><div class="label">${k}</div><div class="value">${v}</div><div class="sub">${s}</div></div>`)
+    .join('');
+  $('#daily-note').textContent = (u.complete ? '' : 'partial (very many calls) · ') + 'updated ' + fmtTime(u.checkedAt) + ' · refreshes every 5 min';
+}
 
 function drawCharts() {
   if (!overview) return;

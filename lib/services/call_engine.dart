@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:daily_flutter/daily_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -32,6 +33,11 @@ class CallEngine {
   final peerLevel = ValueNotifier<double>(0);
 
   CallEndReason? endReason;
+
+  /// Small JSON messages from the other person, sent over the call (e.g. the
+  /// current conversation topic).
+  Stream<Map<String, dynamic>> get messages => _messages.stream;
+  final _messages = StreamController<Map<String, dynamic>>.broadcast();
 
   CallClient? _client;
   StreamSubscription<Event>? _events;
@@ -69,6 +75,26 @@ class CallEngine {
       await leave(CallEndReason.error);
       throw CallException('Couldn\'t join the call. Check your connection and try again.');
     }
+  }
+
+  /// Sends [message] to the other person in the call. Never throws.
+  Future<void> send(Map<String, dynamic> message) async {
+    final client = _client;
+    if (client == null || !_inCall) return;
+    try {
+      await client.sendAppMessage(jsonEncode(message), null);
+    } catch (e) {
+      debugPrint('Daily app message failed: $e');
+    }
+  }
+
+  void _received(String data) {
+    try {
+      Object? value = jsonDecode(data);
+      // Depending on the platform the payload may arrive JSON-encoded twice.
+      if (value is String) value = jsonDecode(value);
+      if (value is Map) _messages.add(Map<String, dynamic>.from(value));
+    } catch (_) {}
   }
 
   Future<void> setMuted(bool muted) async => _client?.setInputsEnabled(microphone: !muted);
@@ -115,6 +141,8 @@ class CallEngine {
         _peerJoined();
       case ParticipantLeftEvent(:final participant) when !participant.info.isLocal:
         _remoteEnded(CallEndReason.peerLeft);
+      case AppMessageReceivedEvent(:final data):
+        _received(data);
       case ActiveSpeakerChangedEvent(:final participant):
         _setSpeaking(participant?.info.isLocal);
       case CallStateUpdatedEvent(:final stateData) when stateData.state == CallState.left:

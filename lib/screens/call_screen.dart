@@ -7,12 +7,14 @@ import '../services/api.dart';
 import '../services/call_engine.dart';
 import '../services/config_store.dart';
 import '../services/social_store.dart';
+import '../services/topic_deck.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../widgets/aurora_background.dart';
 import '../widgets/common.dart';
 import '../widgets/pressable.dart';
 import '../widgets/social_widgets.dart';
+import '../widgets/topic_card.dart';
 import 'call_summary_screen.dart';
 import 'matching_screen.dart';
 
@@ -58,16 +60,24 @@ class _CallScreenState extends State<CallScreen> {
   String? _error;
   late Peer _peer = widget.peer;
 
+  // Conversation topics: the same deck on both phones, kept in step over the call.
+  late final _topics = TopicDeck(widget.callId);
+  bool _topicsOpen = true;
+  String? _topicNote;
+  StreamSubscription<Map<String, dynamic>>? _messages;
+
   @override
   void initState() {
     super.initState();
     CallGuard.enter();
     _engine.phase.addListener(_onPhase);
+    _messages = _engine.messages.listen(_onMessage);
     _join();
   }
 
   @override
   void dispose() {
+    _messages?.cancel();
     _engine.phase.removeListener(_onPhase);
     _ticker?.cancel();
     _timeout?.cancel();
@@ -127,6 +137,26 @@ class _CallScreenState extends State<CallScreen> {
     Navigator.of(context).pushReplacement(fadeRoute(page));
   }
 
+  void _nextTopic() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _topics.position++;
+      _topicNote = null;
+    });
+    _engine.send({'type': 'topic', 'position': _topics.position});
+  }
+
+  void _onMessage(Map<String, dynamic> m) {
+    if (m['type'] != 'topic' || !mounted) return;
+    final position = (m['position'] as num?)?.toInt();
+    if (position == null || position == _topics.position) return;
+    setState(() {
+      _topics.position = position;
+      _topicsOpen = true;
+      _topicNote = '${_peer.name.split(' ').first} picked a new topic';
+    });
+  }
+
   Future<void> _toggleMute() async {
     setState(() => _muted = !_muted);
     await _engine.setMuted(_muted);
@@ -167,7 +197,28 @@ class _CallScreenState extends State<CallScreen> {
             child: Column(
               children: [
                 _topBar(phase),
-                Expanded(child: _error != null ? _errorView() : _peerView(connected)),
+                Expanded(
+                  child: _error != null
+                      ? _errorView()
+                      // Shrinks on short screens to leave room for the topic card. The width
+                      // stays fixed: some children (the follow button) need a bounded width.
+                      : LayoutBuilder(
+                          builder: (context, box) => Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: SizedBox(width: box.maxWidth, child: _peerView(connected)),
+                            ),
+                          ),
+                        ),
+                ),
+                if (connected && _error == null)
+                  TopicCard(
+                    topic: _topics.current,
+                    open: _topicsOpen,
+                    note: _topicNote,
+                    onNext: _nextTopic,
+                    onToggle: () => setState(() => _topicsOpen = !_topicsOpen),
+                  ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2),
                 _controls(),
               ],
             ),
@@ -226,7 +277,7 @@ class _CallScreenState extends State<CallScreen> {
   Widget _peerView(bool connected) {
     final peer = _peer;
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         _VoiceAvatar(peer: peer, active: connected, level: _engine.peerLevel),
         const SizedBox(height: 26),
